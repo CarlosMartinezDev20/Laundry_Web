@@ -19,7 +19,7 @@ export const EmployeesManagement = () => {
   const [formData, setFormData] = useState({
     name: '',
     email: '',
-    passwordHash: '',
+    password: '',
     initials: '',
     roleId: ''
   });
@@ -62,10 +62,10 @@ export const EmployeesManagement = () => {
 
   const handleCreate = async (e) => {
     e.preventDefault();
-    if (!formData.name || !formData.email || !formData.passwordHash) return;
+    if (!formData.name || !formData.email || !formData.password) return;
     try {
       await api.post('/users', formData);
-      setFormData({ name: '', email: '', passwordHash: '', initials: '', roleId: roles[0]?.id || '' });
+      setFormData({ name: '', email: '', password: '', initials: '', roleId: roles[0]?.id || '' });
       toast.success('Employee created successfully');
       fetchData();
     } catch (err) {
@@ -94,7 +94,7 @@ export const EmployeesManagement = () => {
       email: employee.email,
       initials: employee.initials || '',
       roleId: employee.role?.id || '',
-      passwordHash: '' // Only filled if they want to change it
+      password: '' // Only filled if they want to change it
     });
   };
 
@@ -111,8 +111,8 @@ export const EmployeesManagement = () => {
         initials: editData.initials,
         roleId: editData.roleId
       };
-      if (editData.passwordHash) {
-        payload.passwordHash = editData.passwordHash;
+      if (editData.password) {
+        payload.password = editData.password;
       }
       
       await api.patch(`/users/${id}`, payload);
@@ -134,7 +134,7 @@ export const EmployeesManagement = () => {
         <form onSubmit={handleCreate} className="grid grid-cols-1 md:grid-cols-3 gap-4 items-start md:items-end">
           <Input label="Name" name="name" value={formData.name} onChange={handleInputChange} required />
           <Input label="Email" type="email" name="email" value={formData.email} onChange={handleInputChange} required />
-          <Input label="Password" type="password" name="passwordHash" value={formData.passwordHash} onChange={handleInputChange} required />
+          <Input label="Password" type="password" name="password" value={formData.password} onChange={handleInputChange} required />
           <Input label="Initials" name="initials" value={formData.initials} onChange={handleInputChange} maxLength={3} />
           
           <div className="input-group">
@@ -181,7 +181,7 @@ export const EmployeesManagement = () => {
                     </td>
                     <td>
                       {isEditing ? (
-                        <Input name="passwordHash" type="password" placeholder="Leave blank to keep" value={editData.passwordHash} onChange={handleEditChange} />
+                        <Input name="password" type="password" placeholder="Leave blank to keep" value={editData.password} onChange={handleEditChange} />
                       ) : '••••••••'}
                     </td>
                     <td>

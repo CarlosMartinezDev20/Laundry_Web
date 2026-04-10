@@ -20,24 +20,34 @@ export const Sidebar = ({ isOpen, closeSidebar }) => {
   const roleName = user?.role?.name || '';
   const isAdmin = roleName === 'ADMIN';
   const isManager = roleName === 'MANAGER' || isAdmin;
+  const userInitials = (user?.name || 'AD').substring(0, 2).toUpperCase();
+  const userEmail = user?.email || 'admin@laundry.app'; 
 
   return (
-    <aside className={`sidebar ${isOpen ? 'sidebar-open' : ''}`}>
-      <div className="sidebar-header flex justify-between items-center">
-        <div className="flex items-center gap-2">
-          <Buildings size={28} color="var(--color-brand)" weight="duotone" />
-          <span>Laundry Admin</span>
+    <aside className={`sidebar flex flex-col ${isOpen ? 'sidebar-open' : ''}`}>
+      <div className="sidebar-header flex items-center justify-between" style={{ padding: 'var(--spacing-6)' }}>
+        <div className="flex items-center gap-3">
+          <div 
+            className="flex items-center justify-center rounded-lg" 
+            style={{ width: '40px', height: '40px', backgroundColor: 'var(--color-brand)' }}
+          >
+            <Buildings size={24} color="white" weight="duotone" />
+          </div>
+          <div className="flex flex-col">
+            <span className="font-bold text-sm" style={{ lineHeight: '1.2' }}>Laundry Admin</span>
+            <span className="text-xs text-muted" style={{ lineHeight: '1.2' }}>Management</span>
+          </div>
         </div>
-        {/* Mobile close button inside sidebar */}
-        <button className="mobile-menu-btn md:hidden" onClick={closeSidebar} style={{ display: 'none' /* handled by generic CSS or just inline */ }} />
         {isOpen && (
-          <button className="mobile-menu-btn" onClick={closeSidebar}>
-            <X size={24} />
+          <button className="icon-btn md:hidden flex-shrink-0" onClick={closeSidebar}>
+            <X size={20} />
           </button>
         )}
       </div>
       
-      <nav className="sidebar-nav">
+      <nav className="sidebar-nav" style={{ padding: '0 var(--spacing-4)', marginTop: 'var(--spacing-2)' }}>
+        <div className="text-xs text-muted tracking-wider uppercase mb-2 font-semibold" style={{ marginLeft: '0.75rem' }}>Main</div>
+        
         <NavLink to="/forms" onClick={closeSidebar} className={({ isActive }) => `nav-item ${isActive ? 'active' : ''}`}>
           <FileText size={20} />
           Forms Management
@@ -46,12 +56,13 @@ export const Sidebar = ({ isOpen, closeSidebar }) => {
         {isManager && (
           <NavLink to="/reports" onClick={closeSidebar} className={({ isActive }) => `nav-item ${isActive ? 'active' : ''}`}>
             <ChartBar size={20} />
-            Reports (Totals)
+            Reports
           </NavLink>
         )}
         
         {isAdmin && (
           <>
+            <div className="text-xs text-muted tracking-wider uppercase mb-2 mt-6 font-semibold" style={{ marginLeft: '0.75rem' }}>Administration</div>
             <NavLink to="/companies" onClick={closeSidebar} className={({ isActive }) => `nav-item ${isActive ? 'active' : ''}`}>
               <Buildings size={20} />
               Companies
@@ -64,20 +75,29 @@ export const Sidebar = ({ isOpen, closeSidebar }) => {
         )}
       </nav>
 
-      <div className="sidebar-footer">
-        <div className="flex flex-col gap-4">
-          <div className="flex items-center justify-between">
-            <div className="flex flex-col">
-              <span className="text-xs text-muted font-semibold tracking-wider uppercase">Logged in</span>
-              <span className="text-sm font-bold truncate" style={{ maxWidth: '140px' }}>{user?.name || 'Admin'}</span>
-            </div>
-            <button className="icon-btn" onClick={toggleTheme} title="Toggle Theme">
-              {theme === 'dark' ? <Sun size={20} weight="fill" /> : <Moon size={20} weight="fill" />}
-            </button>
-          </div>
-          <button className="btn w-full flex justify-center items-center" onClick={logout}>
-            <SignOut size={16} /> Logout
+      <div className="sidebar-footer mt-auto" style={{ borderTop: '1px solid var(--color-border)', padding: 'var(--spacing-4)' }}>
+        <div className="flex flex-col gap-1 mb-4">
+          <button className="nav-item w-full text-left" style={{ background: 'transparent', border: 'none', cursor: 'pointer' }} onClick={toggleTheme}>
+            {theme === 'dark' ? <Sun size={20} /> : <Moon size={20} />}
+            Toggle Theme
           </button>
+          <button className="nav-item w-full text-left text-danger" style={{ background: 'transparent', border: 'none', cursor: 'pointer' }} onClick={logout}>
+            <SignOut size={20} />
+            Logout
+          </button>
+        </div>
+
+        <div className="flex items-center gap-3">
+          <div 
+            className="flex items-center justify-center font-bold text-white flex-shrink-0" 
+            style={{ width: '40px', height: '40px', backgroundColor: 'var(--color-brand)', borderRadius: '10px', fontSize: '1rem' }}
+          >
+            {userInitials}
+          </div>
+          <div className="flex flex-col overflow-hidden">
+            <span className="text-sm font-bold truncate">{user?.name || 'Admin'}</span>
+            <span className="text-xs text-muted truncate border-none outline-none">{userEmail}</span>
+          </div>
         </div>
       </div>
     </aside>
