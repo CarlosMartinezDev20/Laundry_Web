@@ -6,8 +6,8 @@ import { Table } from '../components/UI/Table';
 import { Button } from '../components/UI/Button';
 import { Input } from '../components/UI/Input';
 import { 
-  MagnifyingGlass, Plus, Eye, PencilSimple, Trash, 
-  Buildings, User, Tag, CalendarBlank, Calendar, FolderDashed 
+  MagnifyingGlass, Plus, Eye, PencilSimple, Trash, CheckCircle,
+  Buildings, User, Tag, CalendarBlank, Calendar, FolderDashed, FileText 
 } from '@phosphor-icons/react';
 import { useAuth } from '../context/AuthContext';
 import { TableSkeleton } from '../components/UI/TableSkeleton';
@@ -19,11 +19,14 @@ export const FormsManagement = () => {
   const [forms, setForms] = useState([]);
   const [companies, setCompanies] = useState([]);
   const [employees, setEmployees] = useState([]);
+  const [stats, setStats] = useState({ today: 0, pending: 0 });
   const [loading, setLoading] = useState(true);
   const [deleteModal, setDeleteModal] = useState({ isOpen: false, id: null });
+  const [approveModal, setApproveModal] = useState({ isOpen: false, id: null });
   const navigate = useNavigate();
   const { user } = useAuth();
-  const isAdminOrManager = user?.role?.name === 'ADMIN' || user?.role?.name === 'MANAGER';
+  const roleName = (user?.role?.name || user?.role || '').toString().toUpperCase();
+  const isAdminOrManager = roleName === 'ADMIN' || roleName === 'MANAGER';
 
   const [filters, setFilters] = useState({
     companyId: '',
@@ -36,6 +39,7 @@ export const FormsManagement = () => {
 
   useEffect(() => {
     fetchForms();
+    fetchStats();
     
     Promise.all([
       api.get('/companies').catch(() => []),
@@ -45,6 +49,15 @@ export const FormsManagement = () => {
       setEmployees(emps);
     });
   }, []);
+
+  const fetchStats = async () => {
+    try {
+      const data = await api.get('/forms/stats');
+      setStats(data);
+    } catch (err) {
+      console.error('Error fetching stats:', err);
+    }
+  };
 
   const fetchForms = async () => {
     setLoading(true);
@@ -118,6 +131,17 @@ export const FormsManagement = () => {
     }
   };
 
+  const handleApprove = async () => {
+    try {
+      await api.patch(`/forms/${approveModal.id}/approve`);
+      toast.success('Form approved successfully! ✅');
+      fetchForms();
+      fetchStats();
+    } catch (err) {
+      toast.error('Failed to approve form');
+    }
+  };
+
   const statusBadge = (status) => {
     const classMap = {
       'DRAFT': 'draft',
@@ -141,6 +165,29 @@ export const FormsManagement = () => {
         </Button>
       </div>
 
+      {/* Summary Cards */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
+        <Card className="flex flex-col gap-2" style={{ borderLeft: '4px solid var(--color-brand)' }}>
+          <div className="flex items-center gap-3">
+            <div className="p-2 rounded-lg" style={{ backgroundColor: 'rgba(59, 130, 246, 0.1)', color: 'var(--color-brand)' }}>
+              <FileText size={24} weight="duotone" />
+            </div>
+            <span className="text-sm text-muted font-medium">Reports Today</span>
+          </div>
+          <div className="text-3xl font-bold mt-2" style={{ color: 'var(--color-brand)' }}>{stats.today}</div>
+        </Card>
+
+        <Card className="flex flex-col gap-2" style={{ borderLeft: '4px solid #f59e0b' }}>
+          <div className="flex items-center gap-3">
+            <div className="p-2 rounded-lg" style={{ backgroundColor: 'rgba(245, 158, 11, 0.1)', color: '#f59e0b' }}>
+              <Calendar size={24} weight="duotone" />
+            </div>
+            <span className="text-sm text-muted font-medium">Pending</span>
+          </div>
+          <div className="text-3xl font-bold mt-2" style={{ color: '#f59e0b' }}>{stats.pending}</div>
+        </Card>
+      </div>
+
       <Card>
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mb-4">
           <div className="input-group">
@@ -152,9 +199,9 @@ export const FormsManagement = () => {
           </div>
           
           <div className="input-group">
-            <label className="input-label flex items-center gap-1"><User size={16}/> Employee (Creator)</label>
+            <label className="input-label flex items-center gap-1"><User size={16}/> User (Creator)</label>
             <select name="employeeId" value={filters.employeeId} onChange={handleFilterChange} className="input-field">
-              <option value="">All Employees</option>
+              <option value="">All Users</option>
               {employees.map(e => <option key={e.id} value={e.id}>{e.name} ({e.initials || '-'})</option>)}
             </select>
           </div>
@@ -221,9 +268,15 @@ export const FormsManagement = () => {
                   <td>{form.createdBy?.name || '-'}</td>
                   <td>
                     <div className="flex gap-2">
+                      
                       <Button onClick={() => navigate(`/forms/${form.id}`)} title="View Form">
                         <Eye size={16} />
                       </Button>
+                      {form.status === 'PENDING_APPROVAL' && (
+                        <Button variant="success" onClick={() => setApproveModal({ isOpen: true, id: form.id })} title="Approve Form">
+                          <CheckCircle size={16} />
+                        </Button>
+                      )}
                       <Button onClick={() => navigate(`/forms/${form.id}/edit`)} disabled={form.status === 'APPROVED'} title="Edit Form">
                         <PencilSimple size={16} />
                       </Button>
@@ -258,6 +311,15 @@ export const FormsManagement = () => {
         title="Delete Form"
         message="Warning: Are you sure you want to delete this form entirely? All pieces and details will be lost."
         confirmText="Delete"
+      />
+
+      <ConfirmModal 
+        isOpen={approveModal.isOpen}
+        onClose={() => setApproveModal({ isOpen: false, id: null })}
+        onConfirm={handleApprove}
+        title="Approve Form ✅"
+        message="Are you sure you want to approve this report? This action will mark it as completed and notify the team."
+        confirmText="Yes, Approve"
       />
     </div>
   );

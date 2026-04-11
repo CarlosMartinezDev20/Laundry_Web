@@ -15,7 +15,7 @@ export const FormDetail = () => {
   const [loading, setLoading] = useState(true);
 
   // Check if viewing user can approve
-  const roleName = user?.role?.name;
+  const roleName = (user?.role?.name || user?.role || '').toString().toUpperCase();
   const canApprove = roleName === 'MANAGER' || roleName === 'ADMIN';
 
   useEffect(() => {
@@ -99,7 +99,6 @@ export const FormDetail = () => {
               <thead>
                 <tr>
                   <th>Category</th>
-                  <th>Size</th>
                   <th>Colored</th>
                   <th>Quantity</th>
                 </tr>
@@ -108,7 +107,6 @@ export const FormDetail = () => {
                 {section.items.map((item, iIdx) => (
                   <tr key={iIdx}>
                     <td>{item.category}</td>
-                    <td>{item.size || '-'}</td>
                     <td>{item.isColored ? 'Yes' : 'No'}</td>
                     <td>{item.quantity}</td>
                   </tr>

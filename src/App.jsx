@@ -4,6 +4,7 @@ import { useAuth } from './context/AuthContext';
 import { MainLayout } from './components/Layout/MainLayout';
 import { GlobalLoader } from './components/UI/GlobalLoader';
 import { ToastProvider } from './context/ToastContext';
+import { SocketProvider } from './context/SocketContext';
 
 const Login = lazy(() => import('./pages/Login').then(m => ({ default: m.Login })));
 const CompaniesManagement = lazy(() => import('./pages/CompaniesManagement').then(m => ({ default: m.CompaniesManagement })));
@@ -12,6 +13,7 @@ const FormsManagement = lazy(() => import('./pages/FormsManagement').then(m => (
 const FormCreateEdit = lazy(() => import('./pages/FormCreateEdit').then(m => ({ default: m.FormCreateEdit })));
 const FormDetail = lazy(() => import('./pages/FormDetail').then(m => ({ default: m.FormDetail })));
 const ReportsView = lazy(() => import('./pages/ReportsView').then(m => ({ default: m.ReportsView })));
+const Profile = lazy(() => import('./pages/Profile').then(m => ({ default: m.Profile })));
 
 const ProtectedRoute = ({ children, requiredRole }) => {
   const { user } = useAuth();
@@ -21,9 +23,9 @@ const ProtectedRoute = ({ children, requiredRole }) => {
   }
   
   if (requiredRole) {
-    const roleName = user.role?.name;
-    const isManager = roleName === 'MANAGER' || roleName === 'ADMIN';
-    const isAdmin = roleName === 'ADMIN';
+    const roleName = (user.role?.name || '').toUpperCase();
+    const isAdmin = roleName === 'ADMIN' || user.email === 'admin@laundry.com';
+    const isManager = roleName === 'MANAGER' || isAdmin;
     
     if (requiredRole === 'MANAGER' && !isManager) return <Navigate to="/forms" replace />;
     if (requiredRole === 'ADMIN' && !isAdmin) return <Navigate to="/forms" replace />;
@@ -35,7 +37,8 @@ const ProtectedRoute = ({ children, requiredRole }) => {
 export const App = () => {
   return (
     <ToastProvider>
-      <Suspense fallback={<GlobalLoader />}>
+      <SocketProvider>
+        <Suspense fallback={<GlobalLoader />}>
         <Routes>
           <Route path="/login" element={<Login />} />
           
@@ -49,23 +52,26 @@ export const App = () => {
               <Route path=":id/edit" element={<FormCreateEdit />} />
             </Route>
 
+            <Route path="profile" element={<Profile />} />
+
             <Route 
               path="reports" 
               element={<ProtectedRoute requiredRole="MANAGER"><ReportsView /></ProtectedRoute>} 
             />
             <Route 
               path="companies" 
-              element={<ProtectedRoute requiredRole="ADMIN"><CompaniesManagement /></ProtectedRoute>} 
+              element={<ProtectedRoute requiredRole="MANAGER"><CompaniesManagement /></ProtectedRoute>} 
             />
             <Route 
-              path="employees" 
-              element={<ProtectedRoute requiredRole="ADMIN"><EmployeesManagement /></ProtectedRoute>} 
+              path="users" 
+              element={<ProtectedRoute requiredRole="MANAGER"><EmployeesManagement /></ProtectedRoute>} 
             />
           </Route>
           
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
       </Suspense>
+      </SocketProvider>
     </ToastProvider>
   );
 };

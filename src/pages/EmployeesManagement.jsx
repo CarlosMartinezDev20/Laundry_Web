@@ -11,7 +11,7 @@ import { useToast } from '../context/ToastContext';
 
 export const EmployeesManagement = () => {
   const toast = useToast();
-  const [employees, setEmployees] = useState([]);
+  const [users, setUsers] = useState([]);
   const [roles, setRoles] = useState([]);
   const [loading, setLoading] = useState(true);
   const [deleteModal, setDeleteModal] = useState({ isOpen: false, id: null });
@@ -38,7 +38,7 @@ export const EmployeesManagement = () => {
         api.get('/users'),
         api.get('/roles')
       ]);
-      setEmployees(usersData);
+      setUsers(usersData);
       setRoles(rolesData);
       if (rolesData.length > 0) {
         setFormData(prev => ({ ...prev, roleId: rolesData[0].id }));
@@ -66,10 +66,10 @@ export const EmployeesManagement = () => {
     try {
       await api.post('/users', formData);
       setFormData({ name: '', email: '', password: '', initials: '', roleId: roles[0]?.id || '' });
-      toast.success('Employee created successfully');
+      toast.success('User created successfully');
       fetchData();
     } catch (err) {
-      toast.error(err.message || 'Failed to create employee');
+      toast.error(err.message || 'Failed to create user');
     }
   };
 
@@ -80,10 +80,10 @@ export const EmployeesManagement = () => {
   const confirmDelete = async () => {
     try {
       await api.delete(`/users/${deleteModal.id}`);
-      toast.success('Employee deleted successfully');
+      toast.success('User deleted successfully');
       fetchData();
     } catch (err) {
-      toast.error('Failed to delete employee');
+      toast.error('Failed to delete user');
     }
   };
 
@@ -117,17 +117,17 @@ export const EmployeesManagement = () => {
       
       await api.patch(`/users/${id}`, payload);
       setEditingId(null);
-      toast.success('Employee updated successfully');
+      toast.success('User updated successfully');
       fetchData();
     } catch (err) {
-      toast.error(err.message || 'Failed to update employee');
+      toast.error(err.message || 'Failed to update user');
     }
   };
 
   return (
     <div className="flex flex-col gap-6 animate-fade-in">
       <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-4">
-        <h2>Employees Management</h2>
+        <h2>Users Management</h2>
       </div>
 
       <Card>
@@ -146,7 +146,7 @@ export const EmployeesManagement = () => {
           
           <div>
             <Button type="submit" variant="primary" className="w-full">
-              Add Employee
+              Add User
             </Button>
           </div>
         </form>
@@ -158,7 +158,7 @@ export const EmployeesManagement = () => {
         ) : (
           <div className="table-wrapper">
             <Table headers={['Name', 'Email', 'Initials', 'Role', 'New Password', 'Actions']}>
-              {employees.map(employee => {
+              {users.map(employee => {
                 const isEditing = editingId === employee.id;
 
                 return (
@@ -210,12 +210,12 @@ export const EmployeesManagement = () => {
                   </tr>
                 );
               })}
-              {employees.length === 0 && (
+              {users.length === 0 && (
                 <tr>
                   <td colSpan="6" className="text-center text-muted p-8">
                     <div className="flex flex-col items-center gap-2">
                        <UsersThree size={48} weight="thin" />
-                       <span style={{ fontSize: '0.9rem' }}>No employees found. Complete the form to add one.</span>
+                       <span style={{ fontSize: '0.9rem' }}>No users found. Complete the form to add one.</span>
                     </div>
                   </td>
                 </tr>
@@ -229,8 +229,8 @@ export const EmployeesManagement = () => {
         isOpen={deleteModal.isOpen}
         onClose={() => setDeleteModal({ isOpen: false, id: null })}
         onConfirm={confirmDelete}
-        title="Delete Employee"
-        message="Are you sure you want to delete this employee? This action cannot be undone."
+        title="Delete User"
+        message="Are you sure you want to delete this user? This action cannot be undone."
         confirmText="Delete"
       />
     </div>

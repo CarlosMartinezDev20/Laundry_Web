@@ -17,8 +17,8 @@ export const Sidebar = ({ isOpen, closeSidebar }) => {
   const { user, logout } = useAuth();
   const { theme, toggleTheme } = useTheme();
   
-  const roleName = user?.role?.name || '';
-  const isAdmin = roleName === 'ADMIN';
+  const roleName = (user?.role?.name || '').toUpperCase();
+  const isAdmin = roleName === 'ADMIN' || user?.email === 'admin@laundry.com'; // Fallback for the main admin
   const isManager = roleName === 'MANAGER' || isAdmin;
   const userInitials = (user?.name || 'AD').substring(0, 2).toUpperCase();
   const userEmail = user?.email || 'admin@laundry.app'; 
@@ -59,17 +59,22 @@ export const Sidebar = ({ isOpen, closeSidebar }) => {
             Reports
           </NavLink>
         )}
+
+        <NavLink to="/profile" onClick={closeSidebar} className={({ isActive }) => `nav-item ${isActive ? 'active' : ''}`}>
+          <Users size={20} />
+          My Profile
+        </NavLink>
         
-        {isAdmin && (
+        {isManager && (
           <>
             <div className="text-xs text-muted tracking-wider uppercase mb-2 mt-6 font-semibold" style={{ marginLeft: '0.75rem' }}>Administration</div>
             <NavLink to="/companies" onClick={closeSidebar} className={({ isActive }) => `nav-item ${isActive ? 'active' : ''}`}>
               <Buildings size={20} />
               Companies
             </NavLink>
-            <NavLink to="/employees" onClick={closeSidebar} className={({ isActive }) => `nav-item ${isActive ? 'active' : ''}`}>
+            <NavLink to="/users" onClick={closeSidebar} className={({ isActive }) => `nav-item ${isActive ? 'active' : ''}`}>
               <Users size={20} />
-              Employees
+              Users
             </NavLink>
           </>
         )}

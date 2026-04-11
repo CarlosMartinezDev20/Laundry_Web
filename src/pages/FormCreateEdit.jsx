@@ -8,52 +8,6 @@ import { FloppyDisk, CaretLeft } from '@phosphor-icons/react';
 import { Skeleton } from '../components/UI/Skeleton';
 import { useToast } from '../context/ToastContext';
 
-const FormItemRow = memo(({ sIdx, iIdx, item, onRowChange, onRemove }) => {
-  return (
-    <tr>
-      <td>
-        <input 
-          className="input-field w-full" 
-          value={item.category} 
-          onChange={e => onRowChange(sIdx, iIdx, 'category', e.target.value)} 
-          placeholder="e.g. Bath towels" 
-        />
-      </td>
-      <td>
-        <select 
-          className="input-field w-full" 
-          value={item.size || ''} 
-          onChange={e => onRowChange(sIdx, iIdx, 'size', e.target.value || null)}
-        >
-          <option value="">None</option>
-          <option value="SIMPLE">Simple</option>
-          <option value="DOUBLE">Double</option>
-          <option value="QUEEN">Queen</option>
-          <option value="KING">King</option>
-        </select>
-      </td>
-      <td>
-        <input 
-          type="checkbox" 
-          checked={item.isColored} 
-          onChange={e => onRowChange(sIdx, iIdx, 'isColored', e.target.checked)} 
-        />
-      </td>
-      <td>
-        <input 
-          type="number" 
-          className="input-field w-full" 
-          value={item.quantity} 
-          onChange={e => onRowChange(sIdx, iIdx, 'quantity', parseInt(e.target.value) || 0)} 
-        />
-      </td>
-      <td>
-        <Button variant="danger" onClick={() => onRemove(sIdx, iIdx)}>Remove</Button>
-      </td>
-    </tr>
-  );
-});
-FormItemRow.displayName = 'FormItemRow';
 
 export const FormCreateEdit = () => {
   const toast = useToast();
@@ -86,9 +40,59 @@ export const FormCreateEdit = () => {
   });
 
   useEffect(() => {
-    api.get('/companies').then(setCompanies).catch(() => {});
+    // Fetch companies and catalog in parallel
+    Promise.all([
+      api.get('/companies'),
+      api.get('/forms/catalog')
+    ]).then(([comps, items]) => {
+      setCompanies(comps);
+      
+      if (!id) {
+        // Prepare initial form data from catalog
+        const initialSections = [
+          { sectionName: 'TOWELS', filledByInitials: '', items: [] },
+          { sectionName: 'BED_SHEETS', filledByInitials: '', items: [] },
+          { sectionName: 'COVERS', filledByInitials: '', items: [] }
+        ];
+
+        // Map catalog items to their sections
+        items.forEach(item => {
+          const sectionIdx = initialSections.findIndex(s => s.sectionName === item.category);
+          if (sectionIdx !== -1) {
+            // We'll use a dual-row approach for each item: Standard and Color
+            // Or a unified object that we'll split on submit.
+            // Let's use the unified object for easier UI:
+            initialSections[sectionIdx].items.push({
+              category: item.name,
+              std: 0,
+              clr: 0
+            });
+          }
+        });
+
+        setFormData(prev => ({ ...prev, sections: initialSections }));
+      }
+    }).catch(() => {});
+
     if (id) {
       api.get(`/forms/${id}`).then(data => {
+        // Group raw items back into unified UI rows (std/clr)
+        const parsedSections = (data.sections || []).map(section => {
+          const groupedItems = [];
+          const itemsMap = {}; // name -> {std, clr}
+          
+          section.items.forEach(item => {
+            if (!itemsMap[item.category]) {
+              itemsMap[item.category] = { category: item.category, std: 0, clr: 0 };
+              groupedItems.push(itemsMap[item.category]);
+            }
+            if (item.isColored) itemsMap[item.category].clr = item.quantity;
+            else itemsMap[item.category].std = item.quantity;
+          });
+
+          return { ...section, items: groupedItems };
+        });
+
         setFormData({
           companyId: data.company.id,
           date: data.date,
@@ -97,7 +101,7 @@ export const FormCreateEdit = () => {
           plasticBagsLarge: data.plasticBagsLarge,
           notes: data.notes || '',
           status: data.status,
-          sections: data.sections || []
+          sections: parsedSections
         });
       }).finally(() => setFetching(false));
     }
@@ -145,11 +149,24 @@ export const FormCreateEdit = () => {
   const handleSubmit = async (e) => {
     e.preventDefault();
     setLoading(true);
+    
+    // Prepare data for API: split unified rows back into individual Standard/Color items
+    const submissionData = {
+      ...formData,
+      sections: formData.sections.map(section => ({
+        ...section,
+        items: section.items.flatMap(item => [
+          { category: item.category, isColored: false, quantity: item.std || 0 },
+          { category: item.category, isColored: true, quantity: item.clr || 0 }
+        ]).filter(item => item.quantity > 0) // Only send items with quantity
+      }))
+    };
+
     try {
       if (id) {
-        await api.patch(`/forms/${id}`, formData);
+        await api.patch(`/forms/${id}`, submissionData);
       } else {
-        await api.post('/forms', formData);
+        await api.post('/forms', submissionData);
       }
       toast.success('Form saved successfully');
       navigate('/forms');
@@ -230,27 +247,39 @@ export const FormCreateEdit = () => {
             <thead>
               <tr>
                 <th>Category</th>
-                <th>Size (Optional)</th>
-                <th>Colored?</th>
-                <th>Quantity</th>
-                <th>Action</th>
+                <th className="text-center">Standard</th>
+                <th className="text-center">Color</th>
+                <th className="text-right">Total</th>
               </tr>
             </thead>
             <tbody>
               {section.items.map((item, iIdx) => (
-                <FormItemRow 
-                  key={iIdx} 
-                  sIdx={sIdx} 
-                  iIdx={iIdx} 
-                  item={item} 
-                  onRowChange={handleItemChange} 
-                  onRemove={removeItem} 
-                />
+                <tr key={iIdx}>
+                  <td className="font-bold">{item.category}</td>
+                  <td>
+                    <input 
+                      type="number" 
+                      className="input-field w-full text-center" 
+                      value={item.std} 
+                      onChange={e => handleItemChange(sIdx, iIdx, 'std', parseInt(e.target.value) || 0)} 
+                    />
+                  </td>
+                  <td>
+                    <input 
+                      type="number" 
+                      className="input-field w-full text-center" 
+                      value={item.clr} 
+                      onChange={e => handleItemChange(sIdx, iIdx, 'clr', parseInt(e.target.value) || 0)} 
+                    />
+                  </td>
+                  <td className="text-right font-bold">
+                    {item.std + item.clr}
+                  </td>
+                </tr>
               ))}
             </tbody>
             </table>
           </div>
-          <Button className="mt-4" onClick={() => addItem(sIdx)}>+ Add Item to {section.sectionName.replace('_', ' ')}</Button>
         </Card>
       ))}
       <Button variant="primary" style={{ padding: '16px' }} onClick={handleSubmit} disabled={loading}>
