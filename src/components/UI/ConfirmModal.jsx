@@ -1,84 +1,108 @@
-import React from 'react';
+import React, { useState } from 'react';
+import { createPortal } from 'react-dom';
 import { Warning, X } from '@phosphor-icons/react';
 import { Button } from './Button';
 
-export const ConfirmModal = ({ isOpen, onClose, onConfirm, title, message, confirmText = 'Confirm', confirmVariant = 'danger' }) => {
+export const ConfirmModal = ({
+  isOpen,
+  onClose,
+  onConfirm,
+  title,
+  message,
+  confirmText = 'Confirm',
+  confirmVariant = 'danger',
+}) => {
+  const [isLoading, setIsLoading] = useState(false);
+
   if (!isOpen) return null;
 
-  return (
-    <div 
-      className="animate-fade-in"
-      style={{
-        position: 'fixed',
-        inset: 0,
-        backgroundColor: 'rgba(15, 23, 42, 0.6)',
-        backdropFilter: 'blur(4px)',
-        zIndex: 100,
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-        padding: '1rem'
-      }}
-      onClick={onClose}
+  const iconBg = confirmVariant === 'danger'
+    ? 'var(--color-danger-light)'
+    : 'var(--color-brand-light)';
+  const iconColor = confirmVariant === 'danger'
+    ? 'var(--color-danger)'
+    : 'var(--color-brand-text)';
+
+  const handleConfirm = async () => {
+    setIsLoading(true);
+    try {
+      await onConfirm();
+    } finally {
+      setIsLoading(false);
+      onClose();
+    }
+  };
+
+
+  return createPortal(
+    <div
+      className="modal-backdrop"
+      onClick={isLoading ? undefined : onClose}
     >
-      <div 
-        className="card"
+      <div
+        className="modal-box"
         onClick={(e) => e.stopPropagation()}
-        style={{
-          width: '100%',
-          maxWidth: '400px',
-          padding: '1.5rem',
-          display: 'flex',
-          flexDirection: 'column',
-          gap: '1rem',
-          transform: 'scale(1)',
-          animation: 'fadeIn 0.2s ease-out forwards'
-        }}
       >
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-          <div style={{ display: 'flex', gap: '0.75rem', alignItems: 'center' }}>
-             <div style={{
-               width: '40px',
-               height: '40px',
-               borderRadius: '50%',
-               backgroundColor: confirmVariant === 'danger' ? 'rgba(239, 68, 68, 0.1)' : 'var(--color-brand-light)',
-               display: 'flex',
-               alignItems: 'center',
-               justifyContent: 'center',
-               color: confirmVariant === 'danger' ? 'var(--color-danger)' : 'var(--color-brand)'
-             }}>
-               <Warning size={24} weight="fill" />
-             </div>
-             <h3 style={{ margin: 0, fontSize: 'var(--font-size-lg)', color: 'var(--color-text-main)' }}>{title}</h3>
+        {/* Header */}
+        <div className="flex items-start justify-between gap-3">
+          <div className="flex items-center gap-3">
+            <div style={{
+              width: '38px',
+              height: '38px',
+              borderRadius: 'var(--radius-md)',
+              backgroundColor: iconBg,
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              color: iconColor,
+              flexShrink: 0,
+            }}>
+              <Warning size={20} weight="fill" />
+            </div>
+            <h3 style={{ fontSize: 'var(--font-size-base)', margin: 0 }}>{title}</h3>
           </div>
-          <button 
+          <button
             onClick={onClose}
+            disabled={isLoading}
             style={{
               background: 'none',
               border: 'none',
-              cursor: 'pointer',
-              color: 'var(--color-text-muted)',
-              padding: '0.25rem',
-              borderRadius: 'var(--radius-sm)'
+              cursor: isLoading ? 'not-allowed' : 'pointer',
+              color: 'var(--color-text-subtle)',
+              display: 'flex',
+              padding: '2px',
+              borderRadius: 'var(--radius-sm)',
+              flexShrink: 0,
+              opacity: isLoading ? 0.5 : 1,
             }}
           >
-            <X size={20} />
+            <X size={18} />
           </button>
         </div>
 
-        <p style={{ margin: 0, color: 'var(--color-text-muted)', fontSize: 'var(--font-size-sm)' }}>
+        {/* Body */}
+        <p style={{
+          color: 'var(--color-text-muted)',
+          fontSize: 'var(--font-size-sm)',
+          lineHeight: 1.6,
+        }}>
           {message}
         </p>
 
-        <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '0.75rem', marginTop: '1rem' }}>
-          <Button onClick={onClose}>
-            Cancel
-          </Button>
-          <Button variant={confirmVariant} onClick={() => { onConfirm(); onClose(); }}>
-            {confirmText}
+        {/* Actions */}
+        <div className="divider" style={{ margin: 0 }} />
+        <div className="flex justify-end gap-2">
+          <Button onClick={onClose} disabled={isLoading}>Cancel</Button>
+          <Button
+            variant={confirmVariant}
+            onClick={handleConfirm}
+            disabled={isLoading}
+          >
+            {isLoading ? 'Processing…' : confirmText}
           </Button>
         </div>
       </div>
-    </div>
+    </div>,
+    document.body
   );
 };

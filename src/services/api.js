@@ -40,22 +40,26 @@ async function request(endpoint, options = {}) {
       if (Array.isArray(errorMessage)) {
         errorMessage = errorMessage.join(', ');
       }
-    } catch (e) {
+    } catch {
       // Fallback if not JSON
     }
     
     throw new ApiError(errorMessage, response.status);
   }
 
-  if (response.status === 204) {
-    return null; // No content
-  }
+  // Handle empty responses (204 No Content, or any success with no body)
+  const text = await response.text();
+  if (!text) return null;
 
-  return response.json();
+  try {
+    return JSON.parse(text);
+  } catch {
+    return null;
+  }
 }
 
 export const api = {
-  get: (endpoint) => request(endpoint),
+  get: (endpoint, options = {}) => request(endpoint, options),
   post: (endpoint, body) => request(endpoint, { method: 'POST', body: JSON.stringify(body) }),
   patch: (endpoint, body) => request(endpoint, { method: 'PATCH', body: JSON.stringify(body) }),
   delete: (endpoint) => request(endpoint, { method: 'DELETE' }),

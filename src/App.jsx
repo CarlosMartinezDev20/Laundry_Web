@@ -24,7 +24,7 @@ const ProtectedRoute = ({ children, requiredRole }) => {
   
   if (requiredRole) {
     const roleName = (user.role?.name || '').toUpperCase();
-    const isAdmin = roleName === 'ADMIN' || user.email === 'admin@laundry.com';
+    const isAdmin = roleName === 'ADMIN';
     const isManager = roleName === 'MANAGER' || isAdmin;
     
     if (requiredRole === 'MANAGER' && !isManager) return <Navigate to="/forms" replace />;
@@ -60,11 +60,11 @@ export const App = () => {
             />
             <Route 
               path="companies" 
-              element={<ProtectedRoute requiredRole="MANAGER"><CompaniesManagement /></ProtectedRoute>} 
+              element={<ProtectedRoute requiredRole="ADMIN"><CompaniesManagement /></ProtectedRoute>} 
             />
             <Route 
               path="users" 
-              element={<ProtectedRoute requiredRole="MANAGER"><EmployeesManagement /></ProtectedRoute>} 
+              element={<ProtectedRoute requiredRole="ADMIN"><EmployeesManagement /></ProtectedRoute>} 
             />
           </Route>
           

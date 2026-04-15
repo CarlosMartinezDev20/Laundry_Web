@@ -1,221 +1,202 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { api } from '../services/api';
 import { Card } from '../components/UI/Card';
 import { Table } from '../components/UI/Table';
 import { Button } from '../components/UI/Button';
 import { Input } from '../components/UI/Input';
-import { Trash, PencilSimple, Check, X, UsersThree } from '@phosphor-icons/react';
-import { TableSkeleton } from '../components/UI/TableSkeleton';
+import { FormModal } from '../components/UI/FormModal';
 import { ConfirmModal } from '../components/UI/ConfirmModal';
+import { TableSkeleton } from '../components/UI/TableSkeleton';
 import { useToast } from '../context/ToastContext';
+import { Trash, PencilSimple, UsersThree, Plus } from '@phosphor-icons/react';
+
+const EMPTY_CREATE_USER = { name: '', email: '', password: '', initials: '', roleId: '' };
 
 export const EmployeesManagement = () => {
   const toast = useToast();
-  const [users, setUsers] = useState([]);
-  const [roles, setRoles] = useState([]);
+  const [users, setUsers]     = useState([]);
+  const [roles, setRoles]     = useState([]);
   const [loading, setLoading] = useState(true);
+
+  /* ── Create modal ── */
+  const [createModal, setCreateModal] = useState(false);
+  const [createData, setCreateData]   = useState(EMPTY_CREATE_USER);
+  const createDataRef = useRef(createData);
+  createDataRef.current = createData;
+  const [creating, setCreating]       = useState(false);
+
+  /* ── Edit modal ── */
+  const [editModal, setEditModal] = useState({ isOpen: false, user: null });
+  const [editData, setEditData]   = useState({});
+  const editDataRef = useRef(editData);
+  editDataRef.current = editData;
+  const [saving, setSaving]       = useState(false);
+
+  /* ── Delete modal ── */
   const [deleteModal, setDeleteModal] = useState({ isOpen: false, id: null });
-  
-  const [formData, setFormData] = useState({
-    name: '',
-    email: '',
-    password: '',
-    initials: '',
-    roleId: ''
-  });
 
-  // Edit State
-  const [editingId, setEditingId] = useState(null);
-  const [editData, setEditData] = useState({});
-
-  useEffect(() => {
-    fetchData();
-  }, []);
-
-  const fetchData = async () => {
+  const fetchData = useCallback(async () => {
     try {
       const [usersData, rolesData] = await Promise.all([
         api.get('/users'),
-        api.get('/roles')
+        api.get('/roles'),
       ]);
       setUsers(usersData);
       setRoles(rolesData);
       if (rolesData.length > 0) {
-        setFormData(prev => ({ ...prev, roleId: rolesData[0].id }));
+        setCreateData((prev) => ({ ...prev, roleId: rolesData[0].id }));
       }
-    } catch (err) {
+    } catch {
       toast.error('Failed to fetch data');
     } finally {
       setLoading(false);
     }
-  };
+  }, [toast]);
 
-  const handleInputChange = (e) => {
-    const { name, value } = e.target;
-    setFormData(prev => ({ ...prev, [name]: value }));
-  };
+  useEffect(() => {
+    fetchData();
+  }, [fetchData]);
 
-  const handleEditChange = (e) => {
-    const { name, value } = e.target;
-    setEditData(prev => ({ ...prev, [name]: value }));
-  };
+  /* ── Create ── */
+  const handleCreate = useCallback(
+    async (e) => {
+      e.preventDefault();
+      const data = createDataRef.current;
+      if (!data.name || !data.email || !data.password) return;
+      setCreating(true);
+      try {
+        await api.post('/users', data);
+        setCreateData({ ...EMPTY_CREATE_USER, roleId: roles[0]?.id || '' });
+        setCreateModal(false);
+        toast.success('User created');
+        fetchData();
+      } catch (err) {
+        toast.error(err.message || 'Failed to create user');
+      } finally {
+        setCreating(false);
+      }
+    },
+    [fetchData, roles, toast],
+  );
 
-  const handleCreate = async (e) => {
-    e.preventDefault();
-    if (!formData.name || !formData.email || !formData.password) return;
-    try {
-      await api.post('/users', formData);
-      setFormData({ name: '', email: '', password: '', initials: '', roleId: roles[0]?.id || '' });
-      toast.success('User created successfully');
-      fetchData();
-    } catch (err) {
-      toast.error(err.message || 'Failed to create user');
-    }
-  };
+  /* ── Edit ── */
+  const openEdit = useCallback((employee) => {
+    setEditData({
+      name:     employee.name,
+      email:    employee.email,
+      initials: employee.initials || '',
+      roleId:   employee.role?.id || '',
+      password: '',
+    });
+    setEditModal({ isOpen: true, user: employee });
+  }, []);
 
-  const handleDeleteClick = (id) => {
-    setDeleteModal({ isOpen: true, id });
-  };
+  const handleEdit = useCallback(
+    async (e) => {
+      e.preventDefault();
+      const data = editDataRef.current;
+      const targetUser = editModal.user;
+      if (!targetUser?.id) return;
+      setSaving(true);
+      try {
+        const payload = {
+          name:     data.name,
+          email:    data.email,
+          initials: data.initials,
+          roleId:   data.roleId,
+        };
+        if (data.password) payload.password = data.password;
+        await api.patch(`/users/${targetUser.id}`, payload);
+        toast.success('User updated');
+        setEditModal({ isOpen: false, user: null });
+        fetchData();
+      } catch (err) {
+        toast.error(err.message || 'Failed to update user');
+      } finally {
+        setSaving(false);
+      }
+    },
+    [editModal.user, fetchData, toast],
+  );
 
-  const confirmDelete = async () => {
+  /* ── Delete ── */
+  const confirmDelete = useCallback(async () => {
     try {
       await api.delete(`/users/${deleteModal.id}`);
-      toast.success('User deleted successfully');
+      toast.success('User deleted');
       fetchData();
-    } catch (err) {
+    } catch {
       toast.error('Failed to delete user');
     }
-  };
+  }, [deleteModal.id, fetchData, toast]);
 
-  const startEdit = (employee) => {
-    setEditingId(employee.id);
-    setEditData({
-      name: employee.name,
-      email: employee.email,
-      initials: employee.initials || '',
-      roleId: employee.role?.id || '',
-      password: '' // Only filled if they want to change it
-    });
-  };
-
-  const cancelEdit = () => {
-    setEditingId(null);
-    setEditData({});
-  };
-
-  const saveEdit = async (id) => {
-    try {
-      const payload = {
-        name: editData.name,
-        email: editData.email,
-        initials: editData.initials,
-        roleId: editData.roleId
-      };
-      if (editData.password) {
-        payload.password = editData.password;
-      }
-      
-      await api.patch(`/users/${id}`, payload);
-      setEditingId(null);
-      toast.success('User updated successfully');
-      fetchData();
-    } catch (err) {
-      toast.error(err.message || 'Failed to update user');
-    }
-  };
+  const onCreateChange = useCallback((e) => {
+    const { name, value } = e.target;
+    setCreateData((prev) => ({ ...prev, [name]: value }));
+  }, []);
+  const onEditChange = useCallback((e) => {
+    const { name, value } = e.target;
+    setEditData((prev) => ({ ...prev, [name]: value }));
+  }, []);
 
   return (
     <div className="flex flex-col gap-6 animate-fade-in">
-      <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-4">
-        <h2>Users Management</h2>
+
+      {/* Header */}
+      <div className="page-header">
+        <div>
+          <h1 className="page-title">Users</h1>
+          <p className="page-subtitle">Manage system users and roles</p>
+        </div>
+        <Button variant="primary" onClick={() => setCreateModal(true)} className="w-full sm:w-fit">
+          <Plus size={16} /> Add User
+        </Button>
       </div>
 
-      <Card>
-        <form onSubmit={handleCreate} className="grid grid-cols-1 md:grid-cols-3 gap-4 items-start md:items-end">
-          <Input label="Name" name="name" value={formData.name} onChange={handleInputChange} required />
-          <Input label="Email" type="email" name="email" value={formData.email} onChange={handleInputChange} required />
-          <Input label="Password" type="password" name="password" value={formData.password} onChange={handleInputChange} required />
-          <Input label="Initials" name="initials" value={formData.initials} onChange={handleInputChange} maxLength={3} />
-          
-          <div className="input-group">
-            <label className="input-label">Role</label>
-            <select name="roleId" value={formData.roleId} onChange={handleInputChange} className="input-field cursor-pointer">
-              {roles.map(r => <option key={r.id} value={r.id}>{r.name}</option>)}
-            </select>
-          </div>
-          
-          <div>
-            <Button type="submit" variant="primary" className="w-full">
-              Add User
-            </Button>
-          </div>
-        </form>
-      </Card>
-
-      <Card>
+      {/* Table */}
+      <Card style={{ padding: 0, overflow: 'hidden' }}>
         {loading ? (
-          <TableSkeleton rows={4} columns={6} />
+          <div style={{ padding: 'var(--spacing-6)' }}>
+            <TableSkeleton rows={4} columns={5} />
+          </div>
         ) : (
-          <div className="table-wrapper">
-            <Table headers={['Name', 'Email', 'Initials', 'Role', 'New Password', 'Actions']}>
-              {users.map(employee => {
-                const isEditing = editingId === employee.id;
-
-                return (
-                  <tr key={employee.id}>
-                    <td>
-                      {isEditing ? <Input name="name" value={editData.name} onChange={handleEditChange} /> : employee.name}
-                    </td>
-                    <td>
-                      {isEditing ? <Input name="email" type="email" value={editData.email} onChange={handleEditChange} /> : employee.email}
-                    </td>
-                    <td>
-                      {isEditing ? <Input name="initials" maxLength={3} value={editData.initials} onChange={handleEditChange} style={{ width: '80px' }} /> : (employee.initials || '-')}
-                    </td>
-                    <td>
-                      {isEditing ? (
-                        <select name="roleId" value={editData.roleId} onChange={handleEditChange} className="input-field cursor-pointer" style={{ width: '130px' }}>
-                          {roles.map(r => <option key={r.id} value={r.id}>{r.name}</option>)}
-                        </select>
-                      ) : employee.role?.name}
-                    </td>
-                    <td>
-                      {isEditing ? (
-                        <Input name="password" type="password" placeholder="Leave blank to keep" value={editData.password} onChange={handleEditChange} />
-                      ) : '••••••••'}
-                    </td>
-                    <td>
-                      <div className="flex gap-2">
-                        {isEditing ? (
-                          <>
-                            <Button variant="primary" onClick={() => saveEdit(employee.id)}>
-                              <Check size={16} /> Save
-                            </Button>
-                            <Button onClick={cancelEdit}>
-                              <X size={16} /> Cancel
-                            </Button>
-                          </>
-                        ) : (
-                          <>
-                            <Button onClick={() => startEdit(employee)}>
-                              <PencilSimple size={16} /> Edit
-                            </Button>
-                            <Button variant="danger" onClick={() => handleDeleteClick(employee.id)}>
-                              <Trash size={16} /> Delete
-                            </Button>
-                          </>
-                        )}
-                      </div>
-                    </td>
-                  </tr>
-                );
-              })}
+          <div className="table-wrapper" style={{ border: 'none', borderRadius: 0 }}>
+            <Table headers={['Name', 'Email', 'Initials', 'Role', 'Actions']}>
+              {users.map(employee => (
+                <tr key={employee.id}>
+                  <td style={{ fontWeight: 500 }}>{employee.name}</td>
+                  <td style={{ color: 'var(--color-text-muted)' }}>{employee.email}</td>
+                  <td>{employee.initials || '—'}</td>
+                  <td>
+                    <span className="sidebar-role-badge">
+                      {(employee.role?.name || '—').toLowerCase()}
+                    </span>
+                  </td>
+                  <td>
+                    <div className="flex gap-2">
+                      <button className="icon-btn" onClick={() => openEdit(employee)} title="Edit user">
+                        <PencilSimple size={15} />
+                      </button>
+                      <button
+                        className="icon-btn danger"
+                        onClick={() => setDeleteModal({ isOpen: true, id: employee.id })}
+                        title="Delete user"
+                      >
+                        <Trash size={15} />
+                      </button>
+                    </div>
+                  </td>
+                </tr>
+              ))}
               {users.length === 0 && (
                 <tr>
-                  <td colSpan="6" className="text-center text-muted p-8">
-                    <div className="flex flex-col items-center gap-2">
-                       <UsersThree size={48} weight="thin" />
-                       <span style={{ fontSize: '0.9rem' }}>No users found. Complete the form to add one.</span>
+                  <td colSpan="5">
+                    <div className="empty-state">
+                      <UsersThree size={48} weight="thin" />
+                      <div>
+                        <div className="empty-state-title">No users found</div>
+                        <div className="empty-state-desc">Add a user using the button above.</div>
+                      </div>
                     </div>
                   </td>
                 </tr>
@@ -225,11 +206,66 @@ export const EmployeesManagement = () => {
         )}
       </Card>
 
-      <ConfirmModal 
+      {/* ── Create Modal ── */}
+      <FormModal
+        isOpen={createModal}
+        onClose={() => { setCreateModal(false); setCreateData({ ...EMPTY_CREATE_USER, roleId: roles[0]?.id || '' }); }}
+        title="Add new user"
+        subtitle="Create a new system user with role assignment"
+        onSubmit={handleCreate}
+        submitText="Create User"
+        isSubmitting={creating}
+        width="520px"
+      >
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <Input label="Full name" name="name" value={createData.name} onChange={onCreateChange} placeholder="John Doe" required autoFocus />
+          <Input label="Initials" name="initials" value={createData.initials} onChange={onCreateChange} placeholder="e.g. JD" maxLength={3} />
+        </div>
+        <Input label="Email" type="email" name="email" value={createData.email} onChange={onCreateChange} placeholder="john@example.com" required />
+        <Input label="Password" type="password" name="password" value={createData.password} onChange={onCreateChange} placeholder="Create a password" required />
+        <div className="input-group">
+          <label className="input-label">Role</label>
+          <select name="roleId" value={createData.roleId} onChange={onCreateChange} className="input-field">
+            {roles.map(r => <option key={r.id} value={r.id}>{r.name}</option>)}
+          </select>
+        </div>
+      </FormModal>
+
+      {/* ── Edit Modal ── */}
+      <FormModal
+        isOpen={editModal.isOpen}
+        onClose={() => setEditModal({ isOpen: false, user: null })}
+        title="Edit user"
+        subtitle={editModal.user?.name}
+        onSubmit={handleEdit}
+        submitText="Save changes"
+        isSubmitting={saving}
+        width="520px"
+      >
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <Input label="Full name" name="name" value={editData.name || ''} onChange={onEditChange} required autoFocus />
+          <Input label="Initials" name="initials" value={editData.initials || ''} onChange={onEditChange} placeholder="e.g. JD" maxLength={3} />
+        </div>
+        <Input label="Email" type="email" name="email" value={editData.email || ''} onChange={onEditChange} required />
+        <div className="input-group">
+          <label className="input-label">Role</label>
+          <select name="roleId" value={editData.roleId || ''} onChange={onEditChange} className="input-field">
+            {roles.map(r => <option key={r.id} value={r.id}>{r.name}</option>)}
+          </select>
+        </div>
+        <div className="divider" style={{ margin: '4px 0' }} />
+        <p className="text-xs text-subtle" style={{ marginBottom: '4px' }}>
+          Leave the password field empty to keep the current password.
+        </p>
+        <Input label="New password" type="password" name="password" value={editData.password || ''} onChange={onEditChange} placeholder="Leave blank to keep current" />
+      </FormModal>
+
+      {/* ── Delete Modal ── */}
+      <ConfirmModal
         isOpen={deleteModal.isOpen}
         onClose={() => setDeleteModal({ isOpen: false, id: null })}
         onConfirm={confirmDelete}
-        title="Delete User"
+        title="Delete user"
         message="Are you sure you want to delete this user? This action cannot be undone."
         confirmText="Delete"
       />

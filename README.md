@@ -19,13 +19,10 @@ This is the web application counterpart for the Laundry digitisation challenge. 
 
 ## Key Features & Example Usage
 
-- **Forms Management**: Navigate to `/forms` to see all historical records. You can **Create, View, Edit, and Delete** forms. Use the advanced Search panel to filter out records accurately by:
-  - Custom Date Range or exact Week picker (ISO Standard)
-  - Company
-  - Employee (Creator)
-  - Approval Status
-- **End-of-Day Manager Approval**: When a Form is completed, a user with the `MANAGER` or `ADMIN` role can click the "View" action (eye icon). Inside the detail view, an "Approve Form" button strictly upgrades the status to `APPROVED` and locks it against future modifications natively.
-- **Manage Companies & Employees (CRUD)**: Authorized Admins can navigate to `/companies` and `/employees` to perform full Inline Creation, Editing (Updates), and Deletion. Note: `Delete` logic invokes a soft-delete under the hook to protect statistical integrity.
+- **Forms Management**: Navigate to `/forms` to see all historical records. You can **Create, View, Edit, and Delete** forms. Filter by date range, ISO week, company, employee (creator), and approval status. Use the **Search** field to narrow results by text (company, author, date, status, or id).
+- **End-of-Day Manager Approval**: When a Form is completed, users with `MANAGER` or `ADMIN` role can approve from list/detail. Once approved, the form is locked from editing.
+- **Manage Companies & Employees (CRUD)**: `ADMIN` users can navigate to `/companies` and `/users` to perform full CRUD operations.
+- **Role access (Web UI)**: `EMPLOYEE` manages forms and profile; `MANAGER` can review/approve and access reports; `ADMIN` has full system access including master data management.
 - **Cumulative Reports**: Navigate to `/reports`. Admins/Managers can filter by time spans to dissect processed standard vs colored laundry volumes, exact sheet sizes, and overall resource consumption (pockets, plastic bags).
 
 ## Key Assumptions
@@ -36,8 +33,12 @@ This is the web application counterpart for the Laundry digitisation challenge. 
 
 ## Justification of Dependencies
 
-A core requirement was keeping dependencies to a strict minimal. Only two were added:
+A core requirement was keeping dependencies minimal. Runtime dependencies:
 
-1. **`react-router-dom`**: Essential for meeting the Single Page Application (SPA) requirement, avoiding deeply complicated manual navigation and window-state management.
-2. **`@phosphor-icons/react`**: Provides clean, consistent UI iconography across the application without the overhead of sourcing and managing static SVGs manually, adhering to the "Modern clean UI" focus.
+1. **`react` / `react-dom`**: Core UI rendering.
+2. **`react-router-dom`**: SPA routing and protected routes.
+3. **`@phosphor-icons/react`**: Consistent iconography for fast UX scanning.
+4. **`socket.io-client`**: Real-time updates for operational awareness.
+
 *Note: Axios was intentionally omitted in favor of the lightweight native Javascript `fetch` API.*
+
