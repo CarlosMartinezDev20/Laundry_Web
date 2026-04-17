@@ -1,14 +1,43 @@
 import React, { useEffect, useState, useRef, useCallback } from 'react';
-import { CheckCircle, XCircle, Info, X } from '@phosphor-icons/react';
+import { CheckCircle, XCircle, Info, Warning, X } from '@phosphor-icons/react';
+
+const TOAST_VARIANTS = {
+  success: {
+    icon: <CheckCircle size={20} weight="fill" />,
+    title: 'Operacion exitosa',
+    accent: 'var(--color-success)',
+    toneClass: 'is-success',
+  },
+  error: {
+    icon: <XCircle size={20} weight="fill" />,
+    title: 'Ocurrio un error',
+    accent: 'var(--color-danger)',
+    toneClass: 'is-error',
+  },
+  info: {
+    icon: <Info size={20} weight="fill" />,
+    title: 'Informacion',
+    accent: 'var(--color-brand)',
+    toneClass: 'is-info',
+  },
+  warning: {
+    icon: <Warning size={20} weight="fill" />,
+    title: 'Atencion',
+    accent: 'var(--color-warning)',
+    toneClass: 'is-warning',
+  },
+};
 
 export const Toast = ({ message, type = 'success', onClose, duration = 3000 }) => {
   const [isVisible, setIsVisible] = useState(false);
   const onCloseRef = useRef(onClose);
-  onCloseRef.current = onClose;
+  useEffect(() => {
+    onCloseRef.current = onClose;
+  }, [onClose]);
 
   const handleClose = useCallback(() => {
     setIsVisible(false);
-    setTimeout(() => onCloseRef.current(), 300);
+    setTimeout(() => onCloseRef.current(), 260);
   }, []);
 
   useEffect(() => {
@@ -20,27 +49,7 @@ export const Toast = ({ message, type = 'success', onClose, duration = 3000 }) =
     };
   }, [duration, handleClose]);
 
-  const variants = {
-    success: {
-      icon: <CheckCircle size={20} weight="fill" />,
-      title: 'Operacion exitosa',
-      accent: 'var(--color-success)',
-      toneClass: 'is-success',
-    },
-    error: {
-      icon: <XCircle size={20} weight="fill" />,
-      title: 'Ocurrio un error',
-      accent: 'var(--color-danger)',
-      toneClass: 'is-error',
-    },
-    info: {
-      icon: <Info size={20} weight="fill" />,
-      title: 'Informacion',
-      accent: 'var(--color-brand)',
-      toneClass: 'is-info',
-    },
-  };
-  const variant = variants[type] || variants.info;
+  const variant = TOAST_VARIANTS[type] || TOAST_VARIANTS.info;
 
   return (
     <div
@@ -50,7 +59,7 @@ export const Toast = ({ message, type = 'success', onClose, duration = 3000 }) =
         '--toast-duration': `${duration}ms`,
       }}
       role="status"
-      aria-live={type === 'error' ? 'assertive' : 'polite'}
+      aria-live={type === 'error' || type === 'warning' ? 'assertive' : 'polite'}
     >
       <div className="toast-icon-wrap" aria-hidden="true">
         {variant.icon}

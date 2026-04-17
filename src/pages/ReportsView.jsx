@@ -1,9 +1,11 @@
-import React, { useState, useEffect, useCallback, useMemo, memo } from 'react';
+import React, { useState, useEffect, useCallback, useMemo, memo, useRef } from 'react';
 import { api } from '../services/api';
+import { formatApiError } from '../utils/apiErrors';
 import { Input } from '../components/UI/Input';
 import { Button } from '../components/UI/Button';
 import { Skeleton } from '../components/UI/Skeleton';
 import { useToast } from '../context/ToastContext';
+import { ErrorState } from '../components/UI/ErrorState';
 import {
   ChartBar,
   Buildings,
@@ -122,7 +124,9 @@ const ReportSection = ({ icon, title, badge, badgeVariant = 'draft', children })
 /* ─── Main Component ──────────────────────────────── */
 export const ReportsView = () => {
   const toast = useToast();
+  const toastRef = useRef(toast);
   const [companies, setCompanies]             = useState([]);
+  const [companiesError, setCompaniesError]     = useState(null);
   const [selectedCompanyId, setSelectedCompanyId] = useState('');
   const [startDate, setStartDate]             = useState('');
   const [endDate, setEndDate]                 = useState('');
@@ -130,14 +134,27 @@ export const ReportsView = () => {
   const [loading, setLoading]                 = useState(false);
 
   useEffect(() => {
+    toastRef.current = toast;
+  }, [toast]);
+
+  const loadCompanies = useCallback(() => {
+    setCompaniesError(null);
     api
       .get('/companies')
-      .then(setCompanies)
-      .catch(() => {
-        toast.error('Could not load companies');
+      .then((data) => {
+        setCompanies(data);
+        setCompaniesError(null);
+      })
+      .catch((err) => {
+        const msg = formatApiError(err);
+        setCompaniesError(msg);
+        toastRef.current.error(msg);
       });
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- mount-only fetch
   }, []);
+
+  useEffect(() => {
+    loadCompanies();
+  }, [loadCompanies]);
 
   const applyPreset = useCallback((preset) => {
     const today = new Date();
@@ -180,8 +197,8 @@ export const ReportsView = () => {
       try {
         const data = await api.get(`/reports/company/${selectedCompanyId}${qs ? `?${qs}` : ''}`);
         setReport(data);
-      } catch {
-        toast.error('Failed to fetch reports');
+      } catch (err) {
+        toast.error(formatApiError(err));
       } finally {
         setLoading(false);
       }
@@ -194,6 +211,10 @@ export const ReportsView = () => {
     setSelectedCompanyId('');
     setStartDate('');
     setEndDate('');
+  }, []);
+
+  const handlePrint = useCallback(() => {
+    window.print();
   }, []);
 
   const selectedCompany = useMemo(
@@ -241,10 +262,15 @@ export const ReportsView = () => {
           <p className="page-subtitle">Cumulative statistics by company and date range</p>
         </div>
         {report && (
-          <button className="btn" onClick={handleReset} type="button">
-            <ArrowCounterClockwise size={15} />
-            New Report
-          </button>
+          <div className="flex gap-2 flex-wrap justify-end">
+            <button className="btn" onClick={handlePrint} type="button" title="Print (or Save as PDF)">
+              Print
+            </button>
+            <button className="btn" onClick={handleReset} type="button">
+              <ArrowCounterClockwise size={15} />
+              New Report
+            </button>
+          </div>
         )}
       </div>
 
@@ -254,6 +280,13 @@ export const ReportsView = () => {
           <MagnifyingGlass size={14} weight="bold" />
           Generate Report
         </div>
+        {companiesError ? (
+          <ErrorState
+            title="No se pudieron cargar las empresas"
+            message={companiesError}
+            onRetry={loadCompanies}
+          />
+        ) : null}
         <form onSubmit={handleGenerate} className="report-filter-form">
           <div className="input-group">
             <label className="input-label">

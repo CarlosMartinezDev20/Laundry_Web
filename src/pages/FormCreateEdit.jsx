@@ -8,6 +8,9 @@ import { Button } from '../components/UI/Button';
 import { FloppyDisk, CaretLeft, Check, Lock } from '@phosphor-icons/react';
 import { Skeleton } from '../components/UI/Skeleton';
 import { useToast } from '../context/ToastContext';
+import { ErrorState } from '../components/UI/ErrorState';
+import { formatApiError, isAbortError } from '../utils/apiErrors';
+import { useAuth } from '../context/AuthContext';
 
 /** Calendar date in the user's local timezone (avoid `toISOString()` which is UTC and can shift the day). */
 const toYMD = (d) => {
@@ -55,10 +58,16 @@ export const FormCreateEdit = () => {
   const toast = useToast();
   const { id } = useParams();
   const navigate = useNavigate();
+  const { user } = useAuth();
   const [companies, setCompanies] = useState([]);
+  const [employees, setEmployees] = useState([]);
   const [loading, setLoading]     = useState(false);
   const [fetching, setFetching]   = useState(!!id);
+  const [loadError, setLoadError] = useState(null);
+  const [reloadNonce, setReloadNonce] = useState(0);
   const [activeStep, setActiveStep] = useState(0); // 0 = General, 1+ = sections
+  const roleName = (user?.role?.name || user?.role || '').toString().toUpperCase();
+  const isManagerOrAdmin = roleName === 'MANAGER' || roleName === 'ADMIN';
 
   const [formData, setFormData] = useState({
     companyId: '',
@@ -77,15 +86,18 @@ export const FormCreateEdit = () => {
   useEffect(() => {
     const ac = new AbortController();
     const { signal } = ac;
+    setLoadError(null);
 
     const load = async () => {
       try {
-        const [comps, items] = await Promise.all([
+        const [comps, items, users] = await Promise.all([
           api.get('/companies', { signal }),
           api.get('/forms/catalog', { signal }),
+          api.get('/users', { signal }),
         ]);
         if (signal.aborted) return;
         setCompanies(comps);
+        setEmployees(users);
 
         if (!id) {
           const initialSections = [
@@ -101,11 +113,17 @@ export const FormCreateEdit = () => {
           });
           setFormData((prev) => ({ ...prev, sections: initialSections }));
         }
-      } catch {
-        /* cancelled or network */
+      } catch (e) {
+        if (isAbortError(e)) return;
+        setLoadError(formatApiError(e));
+        setFetching(false);
+        return;
       }
 
-      if (!id || signal.aborted) return;
+      if (!id || signal.aborted) {
+        if (!signal.aborted) setFetching(false);
+        return;
+      }
 
       try {
         const data = await api.get(`/forms/${id}`, { signal });
@@ -133,8 +151,8 @@ export const FormCreateEdit = () => {
           status: data.status,
           sections: parsedSections,
         });
-      } catch {
-        /* network or abort */
+      } catch (e) {
+        if (!isAbortError(e)) setLoadError(formatApiError(e));
       } finally {
         if (!signal.aborted) setFetching(false);
       }
@@ -144,7 +162,12 @@ export const FormCreateEdit = () => {
     load();
 
     return () => ac.abort();
-  }, [id]);
+  }, [id, reloadNonce]);
+
+  const retryLoad = useCallback(() => {
+    setLoadError(null);
+    setReloadNonce((n) => n + 1);
+  }, []);
 
   const handleChange = useCallback((e) => {
     const { name, value, type } = e.target;
@@ -185,9 +208,21 @@ export const FormCreateEdit = () => {
 
   const handleSubmit = async (e) => {
     if (e) e.preventDefault();
+    const missingInitialsSection = formData.sections.find(
+      (section) => !String(section.filledByInitials || '').trim(),
+    );
+    if (missingInitialsSection) {
+      toast.error(`Select initials for section: ${missingInitialsSection.sectionName.replace(/_/g, ' ').toLowerCase()}`);
+      const sectionIdx = formData.sections.findIndex((s) => s.sectionName === missingInitialsSection.sectionName);
+      if (sectionIdx >= 0) setActiveStep(sectionIdx + 1);
+      return;
+    }
+
+    const submitStatus = isManagerOrAdmin ? formData.status : 'PENDING_APPROVAL';
     setLoading(true);
     const submissionData = {
       ...formData,
+      status: submitStatus,
       sections: formData.sections.map(section => ({
         ...section,
         items: section.items.flatMap(item => [
@@ -202,7 +237,7 @@ export const FormCreateEdit = () => {
       toast.success('Form saved successfully');
       navigate('/forms');
     } catch (err) {
-      toast.error('Error saving form. ' + (err.message || ''));
+      toast.error(formatApiError(err));
     } finally {
       setLoading(false);
     }
@@ -215,6 +250,22 @@ export const FormCreateEdit = () => {
       <Card><Skeleton height="400px" /></Card>
     </div>
   );
+
+  if (loadError) {
+    return (
+      <div className="flex flex-col gap-6 animate-fade-in p-6">
+        <div className="flex items-center gap-3">
+          <Button onClick={() => navigate('/forms')}><CaretLeft size={16} /> Volver</Button>
+        </div>
+        <ErrorState
+          title="No se pudo cargar el formulario"
+          message={loadError}
+          onRetry={retryLoad}
+          className="error-state--fill"
+        />
+      </div>
+    );
+  }
 
   /* ── Approved notice ── */
   if (formData.status === 'APPROVED') {
@@ -317,10 +368,17 @@ export const FormCreateEdit = () => {
               inputMode="numeric"
               placeholder="0"
             />
-            <Select label="Status" name="status" value={formData.status} onChange={handleChange}>
-              <option value="DRAFT">Draft</option>
-              <option value="PENDING_APPROVAL">Pending approval</option>
-            </Select>
+            {isManagerOrAdmin ? (
+              <Select label="Status" name="status" value={formData.status} onChange={handleChange}>
+                <option value="DRAFT">Draft</option>
+                <option value="PENDING_APPROVAL">Pending approval</option>
+              </Select>
+            ) : (
+              <div className="input-group">
+                <label className="input-label">Status</label>
+                <input className="input-field" value="Pending approval" disabled />
+              </div>
+            )}
           </div>
           <div className="input-group" style={{ marginTop: 'var(--spacing-4)' }}>
             <label htmlFor="form-notes" className="input-label">Notes (optional)</label>
@@ -350,18 +408,24 @@ export const FormCreateEdit = () => {
                   {section.sectionName.replace(/_/g, ' ').toLowerCase()}
                 </h3>
               </div>
-              <Input
-                label="Filled by (initials)"
-                name={`filledByInitials-${sIdx}`}
-                value={section.filledByInitials || ''}
-                onChange={(e) => handleFilledByChange(sIdx, e.target.value)}
-                maxLength={3}
-                autoComplete="off"
-                placeholder="ABC"
-                inputMode="text"
-                style={{ width: '100%', maxWidth: '140px' }}
-                title="Up to 3 letters"
-              />
+              <div className="input-group" style={{ width: '100%', maxWidth: '220px' }}>
+                <label className="input-label">Filled by (initials)</label>
+                <select
+                  name={`filledByInitials-${sIdx}`}
+                  className="input-field"
+                  value={section.filledByInitials || ''}
+                  onChange={(e) => handleFilledByChange(sIdx, e.target.value)}
+                >
+                  <option value="">Select initials</option>
+                  {employees
+                    .filter((emp) => String(emp.initials || '').trim())
+                    .map((emp) => (
+                      <option key={emp.id} value={emp.initials.toUpperCase()}>
+                        {emp.initials.toUpperCase()} - {emp.name}
+                      </option>
+                    ))}
+                </select>
+              </div>
             </div>
 
             <div className="table-wrapper">

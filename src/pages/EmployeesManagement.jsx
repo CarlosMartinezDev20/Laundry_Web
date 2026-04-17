@@ -8,6 +8,8 @@ import { FormModal } from '../components/UI/FormModal';
 import { ConfirmModal } from '../components/UI/ConfirmModal';
 import { TableSkeleton } from '../components/UI/TableSkeleton';
 import { useToast } from '../context/ToastContext';
+import { ErrorState } from '../components/UI/ErrorState';
+import { formatApiError } from '../utils/apiErrors';
 import { Trash, PencilSimple, UsersThree, Plus } from '@phosphor-icons/react';
 
 const EMPTY_CREATE_USER = { name: '', email: '', password: '', initials: '', roleId: '' };
@@ -17,6 +19,7 @@ export const EmployeesManagement = () => {
   const [users, setUsers]     = useState([]);
   const [roles, setRoles]     = useState([]);
   const [loading, setLoading] = useState(true);
+  const [fetchError, setFetchError] = useState(null);
 
   /* ── Create modal ── */
   const [createModal, setCreateModal] = useState(false);
@@ -36,6 +39,7 @@ export const EmployeesManagement = () => {
   const [deleteModal, setDeleteModal] = useState({ isOpen: false, id: null });
 
   const fetchData = useCallback(async () => {
+    setFetchError(null);
     try {
       const [usersData, rolesData] = await Promise.all([
         api.get('/users'),
@@ -46,8 +50,10 @@ export const EmployeesManagement = () => {
       if (rolesData.length > 0) {
         setCreateData((prev) => ({ ...prev, roleId: rolesData[0].id }));
       }
-    } catch {
-      toast.error('Failed to fetch data');
+    } catch (err) {
+      const msg = formatApiError(err);
+      setFetchError(msg);
+      toast.error(msg);
     } finally {
       setLoading(false);
     }
@@ -71,7 +77,7 @@ export const EmployeesManagement = () => {
         toast.success('User created');
         fetchData();
       } catch (err) {
-        toast.error(err.message || 'Failed to create user');
+        toast.error(formatApiError(err));
       } finally {
         setCreating(false);
       }
@@ -111,7 +117,7 @@ export const EmployeesManagement = () => {
         setEditModal({ isOpen: false, user: null });
         fetchData();
       } catch (err) {
-        toast.error(err.message || 'Failed to update user');
+        toast.error(formatApiError(err));
       } finally {
         setSaving(false);
       }
@@ -125,8 +131,8 @@ export const EmployeesManagement = () => {
       await api.delete(`/users/${deleteModal.id}`);
       toast.success('User deleted');
       fetchData();
-    } catch {
-      toast.error('Failed to delete user');
+    } catch (err) {
+      toast.error(formatApiError(err));
     }
   }, [deleteModal.id, fetchData, toast]);
 
@@ -155,7 +161,14 @@ export const EmployeesManagement = () => {
 
       {/* Table */}
       <Card style={{ padding: 0, overflow: 'hidden' }}>
-        {loading ? (
+        {!loading && fetchError ? (
+          <ErrorState
+            title="No se pudieron cargar los usuarios"
+            message={fetchError}
+            onRetry={fetchData}
+            className="error-state--fill"
+          />
+        ) : loading ? (
           <div style={{ padding: 'var(--spacing-6)' }}>
             <TableSkeleton rows={4} columns={5} />
           </div>

@@ -1,6 +1,8 @@
 import React, { useState, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
+import { formatApiError } from '../utils/apiErrors';
+import { ApiError } from '../services/api';
 import { Button } from '../components/UI/Button';
 import { Input } from '../components/UI/Input';
 import { Drop, CheckCircle } from '@phosphor-icons/react';
@@ -28,7 +30,11 @@ export const Login = () => {
         await login(email, password);
         navigate('/');
       } catch (err) {
-        setError(err.message || 'Invalid credentials. Please try again.');
+        if (err instanceof ApiError && err.status === 401) {
+          setError(err.message || 'Credenciales incorrectas. Revisa email y contraseña.');
+        } else {
+          setError(formatApiError(err));
+        }
       } finally {
         setIsSubmitting(false);
       }

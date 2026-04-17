@@ -20,9 +20,10 @@ This is the web application counterpart for the Laundry digitisation challenge. 
 ## Key Features & Example Usage
 
 - **Forms Management**: Navigate to `/forms` to see all historical records. You can **Create, View, Edit, and Delete** forms. Filter by date range, ISO week, company, employee (creator), and approval status. Use the **Search** field to narrow results by text (company, author, date, status, or id).
-- **End-of-Day Manager Approval**: When a Form is completed, users with `MANAGER` or `ADMIN` role can approve from list/detail. Once approved, the form is locked from editing.
+- **End-of-Day Manager Approval**: Forms are submitted as `PENDING_APPROVAL` for non-manager users. Managers/Admins can approve individually or run a dedicated end-of-day approval action for all pending forms dated up to today. Once approved, forms are locked from editing.
 - **Manage Companies & Employees (CRUD)**: `ADMIN` users can navigate to `/companies` and `/users` to perform full CRUD operations.
-- **Role access (Web UI)**: `EMPLOYEE` manages forms and profile; `MANAGER` can review/approve and access reports; `ADMIN` has full system access including master data management.
+- **Role access (Web UI)**: `EMPLOYEE` manages forms and profile (status is auto-submitted for review), `MANAGER` can review/approve and access reports, `ADMIN` has full system access including master data management.
+- **Section accountability**: Every form section requires selecting employee initials from registered users (no free-text initials), ensuring traceability per section.
 - **Cumulative Reports**: Navigate to `/reports`. Admins/Managers can filter by time spans to dissect processed standard vs colored laundry volumes, exact sheet sizes, and overall resource consumption (pockets, plastic bags).
 
 ## Key Assumptions

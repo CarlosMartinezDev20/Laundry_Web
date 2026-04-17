@@ -1,7 +1,8 @@
-import React, { useEffect } from 'react';
+import React from 'react';
 import { createPortal } from 'react-dom';
 import { X } from '@phosphor-icons/react';
 import { Button } from './Button';
+import { useModalFrame } from '../../hooks/useModalFrame';
 
 /**
  * FormModal — modal container for edit/create forms.
@@ -17,31 +18,35 @@ export const FormModal = ({
   children,
   width = '480px',
 }) => {
-  // Cerrar con Escape
-  useEffect(() => {
-    if (!isOpen) return;
-    const onKey = (e) => { if (e.key === 'Escape') onClose(); };
-    window.addEventListener('keydown', onKey);
-    return () => window.removeEventListener('keydown', onKey);
-  }, [isOpen, onClose]);
+  const { mounted, closing, finishClosing } = useModalFrame(isOpen, {
+    onClose,
+    closeDisabled: isSubmitting,
+  });
 
-  if (!isOpen) return null;
+  if (!mounted) return null;
 
+  const handleBoxAnimationEnd = (e) => {
+    if (e.target !== e.currentTarget) return;
+    if (closing) finishClosing();
+  };
 
   return createPortal(
     <div
       className="modal-backdrop"
+      data-phase={closing ? 'closing' : 'open'}
       onClick={onClose}
-      role="dialog"
-      aria-modal="true"
-      aria-labelledby="form-modal-title"
+      role="presentation"
     >
       <div
         className="modal-box"
+        data-phase={closing ? 'closing' : 'open'}
         onClick={(e) => e.stopPropagation()}
+        onAnimationEnd={handleBoxAnimationEnd}
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="form-modal-title"
         style={{ maxWidth: width, maxHeight: '90dvh', padding: 0, gap: 0 }}
       >
-        {/* Header */}
         <div style={{
           display: 'flex',
           alignItems: 'flex-start',
@@ -69,7 +74,9 @@ export const FormModal = ({
             )}
           </div>
           <button
+            type="button"
             onClick={onClose}
+            disabled={isSubmitting}
             aria-label="Close"
             className="icon-btn"
             style={{ border: 'none', background: 'none', flexShrink: 0, marginTop: '2px' }}
@@ -78,12 +85,11 @@ export const FormModal = ({
           </button>
         </div>
 
-        {/* Body + Form */}
         <form
           onSubmit={onSubmit}
           style={{ display: 'flex', flexDirection: 'column', flex: 1, overflow: 'hidden' }}
         >
-          <div style={{
+          <div className="modal-body-scroll" style={{
             padding: 'var(--spacing-6)',
             display: 'flex',
             flexDirection: 'column',
@@ -94,7 +100,6 @@ export const FormModal = ({
             {children}
           </div>
 
-          {/* Footer */}
           <div style={{
             display: 'flex',
             justifyContent: 'flex-end',
@@ -103,7 +108,7 @@ export const FormModal = ({
             borderTop: '1px solid var(--color-border)',
             flexShrink: 0,
           }}>
-            <Button type="button" onClick={onClose}>Cancel</Button>
+            <Button type="button" onClick={onClose} disabled={isSubmitting}>Cancel</Button>
             <Button type="submit" variant="primary" disabled={isSubmitting}>
               {isSubmitting ? 'Saving…' : submitText}
             </Button>

@@ -1,27 +1,26 @@
-import { createContext, useState, useEffect, useContext, useMemo } from 'react';
+import { createContext, useState, useEffect, useContext, useMemo, useCallback } from 'react';
 import { api } from '../services/api';
 
 const AuthContext = createContext(null);
 
+const readStoredUser = () => {
+  const storedToken = localStorage.getItem('token');
+  const storedUser = localStorage.getItem('user');
+  if (!storedToken || !storedUser) return null;
+  try {
+    return JSON.parse(storedUser);
+  } catch {
+    localStorage.removeItem('token');
+    localStorage.removeItem('user');
+    return null;
+  }
+};
+
 export const AuthProvider = ({ children }) => {
-  const [user, setUser] = useState(null);
-  const [loading, setLoading] = useState(true);
+  const [user, setUser] = useState(() => readStoredUser());
+  const [loading] = useState(false);
 
   useEffect(() => {
-    // Check local storage for initial state
-    const storedToken = localStorage.getItem('token');
-    const storedUser = localStorage.getItem('user');
-
-    if (storedToken && storedUser) {
-      try {
-        setUser(JSON.parse(storedUser));
-      } catch (err) {
-        localStorage.removeItem('token');
-        localStorage.removeItem('user');
-      }
-    }
-    setLoading(false);
-
     // Listen for 401 unauth events from api.js
     const handleUnauthorized = () => {
       setUser(null);
@@ -31,34 +30,33 @@ export const AuthProvider = ({ children }) => {
     return () => window.removeEventListener('auth-unauthorized', handleUnauthorized);
   }, []);
 
-  const login = async (email, password) => {
-    try {
-      const response = await api.post('/auth/login', { email, password });
-      
-      // Assume response contains { access_token, user }
-      // This will need adjustment if backend response differs. Let's assume standard NestJS shape.
-      const token = response.access_token;
-      const userData = response.user || { email }; // Needs actual shape. We'll store what backend sends.
-      
-      if (token) {
-        localStorage.setItem('token', token);
-        localStorage.setItem('user', JSON.stringify(userData));
-        setUser(userData);
-        return true;
-      }
-      return false;
-    } catch (err) {
-      throw err;
-    }
-  };
+  const login = useCallback(async (email, password) => {
+    const response = await api.post('/auth/login', { email, password });
 
-  const logout = () => {
+    // Assume response contains { access_token, user }
+    // This will need adjustment if backend response differs. Let's assume standard NestJS shape.
+    const token = response.access_token;
+    const userData = response.user || { email }; // Needs actual shape. We'll store what backend sends.
+
+    if (token) {
+      localStorage.setItem('token', token);
+      localStorage.setItem('user', JSON.stringify(userData));
+      setUser(userData);
+      return true;
+    }
+    return false;
+  }, []);
+
+  const logout = useCallback(() => {
     localStorage.removeItem('token');
     localStorage.removeItem('user');
     setUser(null);
-  };
+  }, []);
 
-  const value = useMemo(() => ({ user, login, logout, loading }), [user, loading]);
+  const value = useMemo(
+    () => ({ user, login, logout, loading }),
+    [user, login, logout, loading],
+  );
 
   return (
     <AuthContext.Provider value={value}>

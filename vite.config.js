@@ -8,8 +8,15 @@ export default defineConfig({
     rollupOptions: {
       output: {
         manualChunks(id) {
-          if (id.includes('react-dom') || id.includes('react-router-dom')) return 'vendor';
+          if (
+            id.includes('node_modules/react/') ||
+            id.includes('node_modules/react-dom/') ||
+            id.includes('node_modules/react-router')
+          ) {
+            return 'vendor';
+          }
           if (id.includes('@phosphor-icons')) return 'icons';
+          if (id.includes('socket.io')) return 'socket';
         }
       }
     }

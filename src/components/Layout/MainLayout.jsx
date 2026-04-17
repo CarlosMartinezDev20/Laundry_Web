@@ -1,12 +1,16 @@
 import React, { useState } from 'react';
-import { Outlet } from 'react-router-dom';
+import { Outlet, useLocation } from 'react-router-dom';
 import { Sidebar } from './Sidebar';
 import { List, Moon, Sun } from '@phosphor-icons/react';
 import { useTheme } from '../../context/ThemeContext';
+import { useConnectivity } from '../../context/ConnectivityContext';
+import { OfflineBanner } from '../UI/OfflineBanner';
 
 export const MainLayout = () => {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const { theme, toggleTheme } = useTheme();
+  const { pathname } = useLocation();
+  const { isOnline } = useConnectivity();
 
   return (
     <div className="flex w-full h-screen overflow-hidden">
@@ -21,6 +25,7 @@ export const MainLayout = () => {
       <Sidebar isOpen={sidebarOpen} closeSidebar={() => setSidebarOpen(false)} />
 
       <div className="main-content">
+        {!isOnline && <OfflineBanner />}
         {/* Mobile header */}
         <header className="mobile-header">
           <button
@@ -43,7 +48,9 @@ export const MainLayout = () => {
         </header>
 
         <main className="content-area">
-          <Outlet />
+          <div key={pathname} className="route-outlet">
+            <Outlet />
+          </div>
         </main>
       </div>
     </div>

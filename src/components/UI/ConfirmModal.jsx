@@ -1,7 +1,8 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useId } from 'react';
 import { createPortal } from 'react-dom';
 import { Warning, X } from '@phosphor-icons/react';
 import { Button } from './Button';
+import { useModalFrame } from '../../hooks/useModalFrame';
 
 export const ConfirmModal = ({
   isOpen,
@@ -13,8 +14,17 @@ export const ConfirmModal = ({
   confirmVariant = 'danger',
 }) => {
   const [isLoading, setIsLoading] = useState(false);
+  const titleId = useId();
+  const { mounted, closing, finishClosing } = useModalFrame(isOpen, {
+    onClose,
+    closeDisabled: isLoading,
+  });
 
-  if (!isOpen) return null;
+  useEffect(() => {
+    if (isOpen) setIsLoading(false);
+  }, [isOpen]);
+
+  if (!mounted) return null;
 
   const iconBg = confirmVariant === 'danger'
     ? 'var(--color-danger-light)'
@@ -33,17 +43,27 @@ export const ConfirmModal = ({
     }
   };
 
+  const handleBoxAnimationEnd = (e) => {
+    if (e.target !== e.currentTarget) return;
+    if (closing) finishClosing();
+  };
 
   return createPortal(
     <div
       className="modal-backdrop"
+      data-phase={closing ? 'closing' : 'open'}
       onClick={isLoading ? undefined : onClose}
+      role="presentation"
     >
       <div
         className="modal-box"
+        data-phase={closing ? 'closing' : 'open'}
         onClick={(e) => e.stopPropagation()}
+        onAnimationEnd={handleBoxAnimationEnd}
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby={titleId}
       >
-        {/* Header */}
         <div className="flex items-start justify-between gap-3">
           <div className="flex items-center gap-3">
             <div style={{
@@ -59,9 +79,10 @@ export const ConfirmModal = ({
             }}>
               <Warning size={20} weight="fill" />
             </div>
-            <h3 style={{ fontSize: 'var(--font-size-base)', margin: 0 }}>{title}</h3>
+            <h3 id={titleId} style={{ fontSize: 'var(--font-size-base)', margin: 0 }}>{title}</h3>
           </div>
           <button
+            type="button"
             onClick={onClose}
             disabled={isLoading}
             style={{
@@ -80,7 +101,6 @@ export const ConfirmModal = ({
           </button>
         </div>
 
-        {/* Body */}
         <p style={{
           color: 'var(--color-text-muted)',
           fontSize: 'var(--font-size-sm)',
@@ -89,7 +109,6 @@ export const ConfirmModal = ({
           {message}
         </p>
 
-        {/* Actions */}
         <div className="divider" style={{ margin: 0 }} />
         <div className="flex justify-end gap-2">
           <Button onClick={onClose} disabled={isLoading}>Cancel</Button>

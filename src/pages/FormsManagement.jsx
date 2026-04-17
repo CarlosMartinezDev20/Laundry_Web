@@ -2,7 +2,6 @@ import React, { useState, useEffect, useMemo, useId, useCallback, useRef, memo }
 import { useNavigate } from 'react-router-dom';
 import { api } from '../services/api';
 import { Card } from '../components/UI/Card';
-import { Table } from '../components/UI/Table';
 import { Button } from '../components/UI/Button';
 import { Input } from '../components/UI/Input';
 import { Select } from '../components/UI/Select';
@@ -27,6 +26,8 @@ import { useAuth } from '../context/AuthContext';
 import { TableSkeleton } from '../components/UI/TableSkeleton';
 import { ConfirmModal } from '../components/UI/ConfirmModal';
 import { useToast } from '../context/ToastContext';
+import { ErrorState } from '../components/UI/ErrorState';
+import { formatApiError } from '../utils/apiErrors';
 
 const INITIAL_FILTERS = {
   companyId: '',
@@ -46,11 +47,11 @@ const statusLabel = (status) => {
   return map[status] || status?.replace(/_/g, ' ') || '';
 };
 
-const formatShortDate = (iso) => {
-  if (!iso) return '';
+const safeParseYmd = (iso) => {
+  if (!iso) return null;
   const d = new Date(`${iso}T12:00:00`);
-  if (Number.isNaN(d.getTime())) return iso;
-  return d.toLocaleDateString(undefined, { day: 'numeric', month: 'short', year: 'numeric' });
+  if (Number.isNaN(d.getTime())) return null;
+  return d;
 };
 
 const StatusBadgeCell = memo(function StatusBadgeCell({ status }) {
@@ -69,7 +70,7 @@ const FormTableRow = memo(function FormTableRow({
   onApprove,
 }) {
   const companyName = form.company?.name || 'company';
-  const dateLabel = form.date ? formatShortDate(form.date) : '—';
+  const dateLabel = form._dateLabel || (form.date || '—');
   return (
     <tr>
       <td
@@ -139,15 +140,19 @@ const FormTableRow = memo(function FormTableRow({
 export const FormsManagement = () => {
   const toast = useToast();
   const toastRef = useRef(toast);
-  const hasShownFetchErrorRef = useRef(false);
   const weekFieldId = useId();
+  const tableWrapperRef = useRef(null);
+  const scrollTopRef = useRef(0);
+  const rafRef = useRef(0);
   const [forms, setForms] = useState([]);
   const [companies, setCompanies] = useState([]);
   const [employees, setEmployees] = useState([]);
   const [stats, setStats] = useState({ today: 0, pending: 0 });
   const [loading, setLoading] = useState(true);
+  const [formsFetchError, setFormsFetchError] = useState(null);
   const [deleteModal, setDeleteModal] = useState({ isOpen: false, id: null });
   const [approveModal, setApproveModal] = useState({ isOpen: false, id: null });
+  const [endOfDayModal, setEndOfDayModal] = useState(false);
   const navigate = useNavigate();
   const { user } = useAuth();
   const roleName = (user?.role?.name || user?.role || '').toString().toUpperCase();
@@ -156,9 +161,54 @@ export const FormsManagement = () => {
   const [filters, setFilters] = useState({ ...INITIAL_FILTERS });
   const [searchText, setSearchText] = useState('');
 
+  const dateFormatter = useMemo(
+    () => new Intl.DateTimeFormat(undefined, { day: 'numeric', month: 'short', year: 'numeric' }),
+    [],
+  );
+
+  // ── Virtualized table state (smooth scrolling with large datasets) ──
+  const [tableScrollTop, setTableScrollTop] = useState(0);
+  const [tableViewportH, setTableViewportH] = useState(520);
+  const ROW_HEIGHT = 52; // px (approx, keeps scrolling smooth)
+  const OVERSCAN = 10;   // render a bit extra above/below
+
   useEffect(() => {
     toastRef.current = toast;
   }, [toast]);
+
+  useEffect(() => {
+    const el = tableWrapperRef.current;
+    if (!el) return;
+
+    const measure = () => {
+      const h = el.clientHeight || 520;
+      setTableViewportH(h);
+    };
+
+    measure();
+    let ro;
+    if (typeof ResizeObserver !== 'undefined') {
+      ro = new ResizeObserver(measure);
+      ro.observe(el);
+    } else {
+      window.addEventListener('resize', measure);
+    }
+
+    return () => {
+      if (ro) ro.disconnect();
+      else window.removeEventListener('resize', measure);
+    };
+  }, []);
+
+  const onTableScroll = useCallback((e) => {
+    const nextTop = e.currentTarget.scrollTop;
+    scrollTopRef.current = nextTop;
+    if (rafRef.current) return;
+    rafRef.current = window.requestAnimationFrame(() => {
+      rafRef.current = 0;
+      setTableScrollTop(scrollTopRef.current);
+    });
+  }, []);
 
   const fetchForms = useCallback(async (filterSnapshot, currentFilters) => {
     setLoading(true);
@@ -172,13 +222,38 @@ export const FormsManagement = () => {
     const query = params.toString() ? `?${params.toString()}` : '';
     try {
       const data = await api.get(`/forms${query}`);
-      setForms(data);
-      hasShownFetchErrorRef.current = false;
+      const normalized = (data || []).map((form) => {
+        const company = form.company?.name || '';
+        const creator = form.createdBy?.name || '';
+        const initials = form.createdBy?.initials || '';
+        const statusLbl = statusLabel(form.status);
+        const parsed = safeParseYmd(form.date);
+        const dateLabel = parsed ? dateFormatter.format(parsed) : (form.date || '');
+        const searchIndex = [
+          company,
+          creator,
+          initials,
+          String(form.date || ''),
+          dateLabel,
+          statusLbl,
+          String(form.id ?? ''),
+        ]
+          .join(' | ')
+          .toLowerCase();
+
+        return {
+          ...form,
+          _dateLabel: dateLabel,
+          _statusLabel: statusLbl,
+          _searchIndex: searchIndex,
+        };
+      });
+      setForms(normalized);
+      setFormsFetchError(null);
     } catch (err) {
-      if (!hasShownFetchErrorRef.current) {
-        hasShownFetchErrorRef.current = true;
-        toastRef.current.error('Failed to fetch forms. ' + (err.message || ''));
-      }
+      const msg = formatApiError(err);
+      setFormsFetchError(msg);
+      toastRef.current.error(msg);
     } finally {
       setLoading(false);
     }
@@ -227,25 +302,48 @@ export const FormsManagement = () => {
     const q = searchText.trim().toLowerCase();
     if (!q) return forms;
     return forms.filter((form) => {
+      const idx = form._searchIndex;
+      if (idx) return idx.includes(q);
+      // Fallback for unexpected shapes
       const company = (form.company?.name || '').toLowerCase();
       const creator = (form.createdBy?.name || '').toLowerCase();
       const initials = (form.createdBy?.initials || '').toLowerCase();
       const dateRaw = String(form.date || '').toLowerCase();
-      const dateFmt = form.date ? formatShortDate(form.date).toLowerCase() : '';
       const status = statusLabel(form.status).toLowerCase();
       const idStr = String(form.id ?? '').toLowerCase();
-
-      return (
-        company.includes(q) ||
-        creator.includes(q) ||
-        initials.includes(q) ||
-        dateRaw.includes(q) ||
-        dateFmt.includes(q) ||
-        status.includes(q) ||
-        idStr.includes(q)
-      );
+      return company.includes(q) || creator.includes(q) || initials.includes(q) || dateRaw.includes(q) || status.includes(q) || idStr.includes(q);
     });
   }, [forms, searchText]);
+
+  // Reset scroll position when list changes significantly (filters/search)
+  useEffect(() => {
+    const el = tableWrapperRef.current;
+    if (!el) return;
+    el.scrollTop = 0;
+    setTableScrollTop(0);
+  }, [filters.companyId, filters.status, filters.employeeId, filters.startDate, filters.endDate, filters.week, searchText]);
+
+  const virtualWindow = useMemo(() => {
+    const total = displayedForms.length;
+    const visibleCount = Math.max(1, Math.ceil(tableViewportH / ROW_HEIGHT));
+    const startIndex = Math.max(0, Math.floor(tableScrollTop / ROW_HEIGHT) - OVERSCAN);
+    const endIndex = Math.min(total, startIndex + visibleCount + OVERSCAN * 2);
+    const slice = displayedForms.slice(startIndex, endIndex);
+    const topPad = startIndex * ROW_HEIGHT;
+    const bottomPad = (total - endIndex) * ROW_HEIGHT;
+    return { total, startIndex, endIndex, slice, topPad, bottomPad };
+  }, [displayedForms, tableScrollTop, tableViewportH]);
+
+  const endOfDayPendingForms = useMemo(() => {
+    const today = new Date();
+    const y = today.getFullYear();
+    const m = String(today.getMonth() + 1).padStart(2, '0');
+    const d = String(today.getDate()).padStart(2, '0');
+    const todayYmd = `${y}-${m}-${d}`;
+    return displayedForms.filter(
+      (form) => form.status === 'PENDING_APPROVAL' && String(form.date || '') <= todayYmd,
+    );
+  }, [displayedForms]);
 
   const filterChips = useMemo(() => {
     const chips = [];
@@ -263,12 +361,14 @@ export const FormsManagement = () => {
     if (filters.week) {
       chips.push({ key: 'week', label: `Week ${filters.week.replace('-W', ' · W')}` });
     } else if (filters.startDate || filters.endDate) {
-      const a = filters.startDate ? formatShortDate(filters.startDate) : '…';
-      const b = filters.endDate ? formatShortDate(filters.endDate) : '…';
+      const aD = filters.startDate ? safeParseYmd(filters.startDate) : null;
+      const bD = filters.endDate ? safeParseYmd(filters.endDate) : null;
+      const a = aD ? dateFormatter.format(aD) : (filters.startDate ? String(filters.startDate) : '…');
+      const b = bD ? dateFormatter.format(bD) : (filters.endDate ? String(filters.endDate) : '…');
       chips.push({ key: 'dateRange', label: `${a} – ${b}` });
     }
     return chips;
-  }, [filters, companies, employees]);
+  }, [filters, companies, employees, dateFormatter]);
 
   const handleFilterChange = useCallback((e) => {
     const { name, value } = e.target;
@@ -344,6 +444,24 @@ export const FormsManagement = () => {
     }
   }, [approveModal.id, fetchForms, fetchStats, filters, toast]);
 
+  const handleEndOfDayApproval = useCallback(async () => {
+    const pendingIds = endOfDayPendingForms.map((form) => form.id);
+    if (pendingIds.length === 0) return;
+    const results = await Promise.allSettled(
+      pendingIds.map((formId) => api.patch(`/forms/${formId}/approve`)),
+    );
+    const successCount = results.filter((r) => r.status === 'fulfilled').length;
+    const failedCount = results.length - successCount;
+    if (successCount > 0) {
+      toast.success(`End-of-day approval completed: ${successCount} form(s) approved.`);
+    }
+    if (failedCount > 0) {
+      toast.error(`${failedCount} form(s) could not be approved. Please retry.`);
+    }
+    fetchForms(undefined, filters);
+    fetchStats();
+  }, [endOfDayPendingForms, fetchForms, fetchStats, filters, toast]);
+
   const handleViewForm = useCallback((formId) => navigate(`/forms/${formId}`), [navigate]);
   const handleEditForm = useCallback((formId) => navigate(`/forms/${formId}/edit`), [navigate]);
   const handleApproveClick = useCallback((formId) => setApproveModal({ isOpen: true, id: formId }), []);
@@ -385,6 +503,27 @@ export const FormsManagement = () => {
         </div>
       </div>
 
+      {isAdminOrManager && (
+        <Card>
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+            <div>
+              <h3 style={{ marginBottom: 0 }}>End-of-day approval</h3>
+              <p className="text-sm text-muted" style={{ marginTop: '4px' }}>
+                Pending forms dated today or earlier must be approved by a manager before closing the day.
+              </p>
+            </div>
+            <Button
+              variant="success"
+              onClick={() => setEndOfDayModal(true)}
+              disabled={endOfDayPendingForms.length === 0}
+              className="w-full sm:w-fit"
+            >
+              <CheckCircle size={16} aria-hidden /> Approve {endOfDayPendingForms.length} pending
+            </Button>
+          </div>
+        </Card>
+      )}
+
       <div className="filter-card">
         <div className="filter-card-header">
           <div className="filter-card-heading">
@@ -401,8 +540,8 @@ export const FormsManagement = () => {
             <div className="min-w-0">
               <h2 className="filter-card-title">Filters</h2>
               <p className="filter-card-subtitle">
-                Combine company, author, status and dates. Use <strong>Apply filters</strong> to refresh the list, and
-                Search to narrow results by text.
+                Refine by company, author, status and dates. Apply to reload from the server; search filters the results
+                below instantly.
               </p>
             </div>
           </div>
@@ -559,7 +698,7 @@ export const FormsManagement = () => {
       </div>
 
       <Card className="min-w-0 forms-list-card" style={{ padding: 0 }}>
-        {!loading && (
+        {!loading && !formsFetchError && (
           <div className="forms-table-toolbar">
             <span className="forms-table-count">
               {displayedForms.length === 0
@@ -578,43 +717,79 @@ export const FormsManagement = () => {
           <div style={{ padding: 'var(--spacing-6)' }}>
             <TableSkeleton rows={5} columns={5} />
           </div>
+        ) : formsFetchError ? (
+          <ErrorState
+            title="No se pudieron cargar los formularios"
+            message={formsFetchError}
+            onRetry={() => fetchForms(undefined, filters)}
+            className="error-state--fill"
+          />
         ) : (
-          <Table
-            className="table-flush forms-data-table"
-            headers={['Date', 'Company', 'Status', 'Created by', 'Actions']}
+          <div
+            ref={tableWrapperRef}
+            className="table-wrapper table-flush forms-data-table forms-virtual-table"
+            style={{ maxHeight: '70vh', overflowY: 'auto' }}
+            onScroll={onTableScroll}
           >
-            {displayedForms.map((form) => (
-              <FormTableRow
-                key={form.id}
-                form={form}
-                isAdminOrManager={isAdminOrManager}
-                onView={handleViewForm}
-                onEdit={handleEditForm}
-                onDelete={handleDeleteClick}
-                onApprove={handleApproveClick}
-              />
-            ))}
-            {displayedForms.length === 0 && (
-              <tr>
-                <td colSpan="5">
-                  <div className="empty-state">
-                    <FolderDashed size={48} weight="thin" aria-hidden />
-                    <div>
-                      <div className="empty-state-title">No forms found</div>
-                      <div className="empty-state-desc">
-                        {searchText.trim()
-                          ? 'Try clearing search or adjusting filters, then apply again.'
-                          : 'Try adjusting filters and applying again, or create a new form.'}
+            <table className="table">
+              <thead>
+                <tr>
+                  {['Date', 'Company', 'Status', 'Created by'].map((h) => (
+                    <th key={h}>{h}</th>
+                  ))}
+                  <th className="forms-actions-cell">Actions</th>
+                </tr>
+              </thead>
+              <tbody>
+                {virtualWindow.total === 0 ? (
+                  <tr>
+                    <td colSpan={5}>
+                      <div className="empty-state">
+                        <FolderDashed size={48} weight="thin" aria-hidden />
+                        <div>
+                          <div className="empty-state-title">No forms found</div>
+                          <div className="empty-state-desc">
+                            {searchText.trim()
+                              ? 'Try clearing search or adjusting filters, then apply again.'
+                              : 'Try adjusting filters and applying again, or create a new form.'}
+                          </div>
+                        </div>
+                        <Button variant="primary" onClick={() => navigate('/forms/new')} className="mt-2 w-full sm:w-fit">
+                          <Plus size={16} aria-hidden /> New form
+                        </Button>
                       </div>
-                    </div>
-                    <Button variant="primary" onClick={() => navigate('/forms/new')} className="mt-2 w-full sm:w-fit">
-                      <Plus size={16} aria-hidden /> New form
-                    </Button>
-                  </div>
-                </td>
-              </tr>
-            )}
-          </Table>
+                    </td>
+                  </tr>
+                ) : (
+                  <>
+                    {virtualWindow.topPad > 0 && (
+                      <tr aria-hidden="true">
+                        <td colSpan={5} style={{ padding: 0, borderBottom: 'none', height: virtualWindow.topPad }} />
+                      </tr>
+                    )}
+
+                    {virtualWindow.slice.map((form) => (
+                      <FormTableRow
+                        key={form.id}
+                        form={form}
+                        isAdminOrManager={isAdminOrManager}
+                        onView={handleViewForm}
+                        onEdit={handleEditForm}
+                        onDelete={handleDeleteClick}
+                        onApprove={handleApproveClick}
+                      />
+                    ))}
+
+                    {virtualWindow.bottomPad > 0 && (
+                      <tr aria-hidden="true">
+                        <td colSpan={5} style={{ padding: 0, borderBottom: 'none', height: virtualWindow.bottomPad }} />
+                      </tr>
+                    )}
+                  </>
+                )}
+              </tbody>
+            </table>
+          </div>
         )}
       </Card>
 
@@ -633,6 +808,18 @@ export const FormsManagement = () => {
         title="Approve form"
         message="Are you sure you want to approve this report? This will mark it as completed and notify the team."
         confirmText="Approve"
+        confirmVariant="success"
+      />
+      <ConfirmModal
+        isOpen={endOfDayModal}
+        onClose={() => setEndOfDayModal(false)}
+        onConfirm={async () => {
+          await handleEndOfDayApproval();
+          setEndOfDayModal(false);
+        }}
+        title="End-of-day approval"
+        message={`Approve all pending forms dated up to today? (${endOfDayPendingForms.length} form(s))`}
+        confirmText="Approve all"
         confirmVariant="success"
       />
     </div>

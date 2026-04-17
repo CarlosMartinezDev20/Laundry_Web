@@ -4,6 +4,7 @@ import { api } from '../services/api';
 import { Input } from '../components/UI/Input';
 import { Button } from '../components/UI/Button';
 import { useToast } from '../context/ToastContext';
+import { formatApiError } from '../utils/apiErrors';
 import {
   User,
   Key,
@@ -90,7 +91,7 @@ export const Profile = () => {
         toast.success('Profile updated. Some changes may require a re-login.');
         setFormData((prev) => ({ ...prev, password: '', confirmPassword: '' }));
       } catch (err) {
-        toast.error('Failed to update profile: ' + (err.message || 'Error'));
+        toast.error(formatApiError(err));
       } finally {
         setLoading(false);
       }
@@ -99,10 +100,10 @@ export const Profile = () => {
   );
 
   return (
-    <div className="animate-fade-in">
+    <div className="animate-fade-in profile-page">
 
       {/* ── Page header ── */}
-      <div style={{ marginBottom: 'var(--spacing-6)' }}>
+      <div className="profile-page-header">
         <h1 className="page-title">My Profile</h1>
         <p className="page-subtitle">Manage your personal information and account security</p>
       </div>

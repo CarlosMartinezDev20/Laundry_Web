@@ -8,6 +8,8 @@ export const Input = ({
   id,
   type = 'text',
   style,
+  icon,
+  helperText,
   ...props
 }) => {
   const generatedId = useId();
@@ -16,6 +18,7 @@ export const Input = ({
 
   const isPassword = type === 'password';
   const resolvedType = isPassword ? (showPassword ? 'text' : 'password') : type;
+  const hasIcon = Boolean(icon);
 
   return (
     <div className={`input-group ${className}`.trim()} style={style}>
@@ -24,41 +27,37 @@ export const Input = ({
           {label}
         </label>
       )}
-      <div style={{ position: 'relative', display: 'flex', alignItems: 'center' }}>
+      <div className="input-field-wrap">
+        {hasIcon && (
+          <span className="input-icon-left" aria-hidden="true">
+            {icon}
+          </span>
+        )}
         <input
           id={inputId}
           type={resolvedType}
           className="input-field"
-          style={{ paddingRight: isPassword ? '2.5rem' : undefined, width: '100%' }}
+          style={{
+            paddingLeft: hasIcon ? '2.5rem' : undefined,
+            paddingRight: isPassword ? '2.5rem' : undefined,
+            width: '100%',
+          }}
           {...props}
         />
         {isPassword && (
           <button
             type="button"
+            className="input-suffix-btn"
             onClick={() => setShowPassword(v => !v)}
             aria-label={showPassword ? 'Hide password' : 'Show password'}
-            tabIndex={-1}
-            style={{
-              position: 'absolute',
-              right: '0.625rem',
-              background: 'none',
-              border: 'none',
-              cursor: 'pointer',
-              color: 'var(--color-text-subtle)',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              padding: '2px',
-              borderRadius: 'var(--radius-sm)',
-              transition: 'color 0.15s ease',
-            }}
-            onMouseEnter={e => (e.currentTarget.style.color = 'var(--color-text-main)')}
-            onMouseLeave={e => (e.currentTarget.style.color = 'var(--color-text-subtle)')}
           >
             {showPassword ? <EyeSlash size={17} /> : <Eye size={17} />}
           </button>
         )}
       </div>
+      {helperText && (
+        <p className="input-helper text-muted text-xs">{helperText}</p>
+      )}
       {error && (
         <span className="text-danger text-xs" style={{ marginTop: '4px' }}>
           {error}

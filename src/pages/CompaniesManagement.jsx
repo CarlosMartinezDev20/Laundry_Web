@@ -8,12 +8,15 @@ import { FormModal } from '../components/UI/FormModal';
 import { ConfirmModal } from '../components/UI/ConfirmModal';
 import { TableSkeleton } from '../components/UI/TableSkeleton';
 import { useToast } from '../context/ToastContext';
+import { ErrorState } from '../components/UI/ErrorState';
+import { formatApiError } from '../utils/apiErrors';
 import { Trash, PencilSimple, Buildings, Plus } from '@phosphor-icons/react';
 
 export const CompaniesManagement = () => {
   const toast = useToast();
   const [companies, setCompanies] = useState([]);
   const [loading, setLoading]     = useState(true);
+  const [fetchError, setFetchError] = useState(null);
 
   /* ── Create modal ── */
   const [createModal, setCreateModal] = useState(false);
@@ -33,11 +36,14 @@ export const CompaniesManagement = () => {
   const [deleteModal, setDeleteModal] = useState({ isOpen: false, id: null });
 
   const fetchCompanies = useCallback(async () => {
+    setFetchError(null);
     try {
       const data = await api.get('/companies');
       setCompanies(data);
-    } catch {
-      toast.error('Failed to fetch companies');
+    } catch (err) {
+      const msg = formatApiError(err);
+      setFetchError(msg);
+      toast.error(msg);
     } finally {
       setLoading(false);
     }
@@ -60,8 +66,8 @@ export const CompaniesManagement = () => {
         setCreateModal(false);
         toast.success('Company created');
         fetchCompanies();
-      } catch {
-        toast.error('Failed to create company');
+      } catch (err) {
+        toast.error(formatApiError(err));
       } finally {
         setCreating(false);
       }
@@ -91,8 +97,8 @@ export const CompaniesManagement = () => {
         toast.success('Company updated');
         setEditModal({ isOpen: false, company: null });
         fetchCompanies();
-      } catch {
-        toast.error('Failed to update company');
+      } catch (err) {
+        toast.error(formatApiError(err));
       } finally {
         setSaving(false);
       }
@@ -106,8 +112,8 @@ export const CompaniesManagement = () => {
       await api.delete(`/companies/${deleteModal.id}`);
       toast.success('Company deleted');
       fetchCompanies();
-    } catch {
-      toast.error('Failed to delete company');
+    } catch (err) {
+      toast.error(formatApiError(err));
     }
   }, [deleteModal.id, fetchCompanies, toast]);
 
@@ -127,7 +133,14 @@ export const CompaniesManagement = () => {
 
       {/* Table */}
       <Card style={{ padding: 0, overflow: 'hidden' }}>
-        {loading ? (
+        {!loading && fetchError ? (
+          <ErrorState
+            title="No se pudieron cargar las empresas"
+            message={fetchError}
+            onRetry={fetchCompanies}
+            className="error-state--fill"
+          />
+        ) : loading ? (
           <div style={{ padding: 'var(--spacing-6)' }}>
             <TableSkeleton rows={4} columns={3} />
           </div>

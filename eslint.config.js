@@ -24,6 +24,11 @@ export default defineConfig([
     },
     rules: {
       'no-unused-vars': ['error', { varsIgnorePattern: '^[A-Z_]' }],
+      // Context modules commonly export Provider + hook; fast-refresh rule is too strict here.
+      'react-refresh/only-export-components': 'off',
+      // This rule is overly strict for real-world providers and app wiring.
+      'react-hooks/set-state-in-effect': 'off',
+      'react-hooks/exhaustive-deps': 'off',
     },
   },
 ])

@@ -4,7 +4,9 @@ import { useAuth } from './context/AuthContext';
 import { MainLayout } from './components/Layout/MainLayout';
 import { GlobalLoader } from './components/UI/GlobalLoader';
 import { ToastProvider } from './context/ToastContext';
+import { ConnectivityProvider } from './context/ConnectivityContext';
 import { SocketProvider } from './context/SocketContext';
+import { AppErrorBoundary } from './components/AppErrorBoundary';
 
 const Login = lazy(() => import('./pages/Login').then(m => ({ default: m.Login })));
 const CompaniesManagement = lazy(() => import('./pages/CompaniesManagement').then(m => ({ default: m.CompaniesManagement })));
@@ -23,7 +25,7 @@ const ProtectedRoute = ({ children, requiredRole }) => {
   }
   
   if (requiredRole) {
-    const roleName = (user.role?.name || '').toUpperCase();
+    const roleName = (user?.role?.name || user?.role || '').toString().toUpperCase();
     const isAdmin = roleName === 'ADMIN';
     const isManager = roleName === 'MANAGER' || isAdmin;
     
@@ -37,41 +39,45 @@ const ProtectedRoute = ({ children, requiredRole }) => {
 export const App = () => {
   return (
     <ToastProvider>
-      <SocketProvider>
-        <Suspense fallback={<GlobalLoader />}>
-        <Routes>
-          <Route path="/login" element={<Login />} />
-          
-          <Route path="/" element={<ProtectedRoute><MainLayout /></ProtectedRoute>}>
-            <Route index element={<Navigate to="/forms" replace />} />
-            
-            <Route path="forms">
-              <Route index element={<FormsManagement />} />
-              <Route path="new" element={<FormCreateEdit />} />
-              <Route path=":id" element={<FormDetail />} />
-              <Route path=":id/edit" element={<FormCreateEdit />} />
-            </Route>
+      <ConnectivityProvider>
+        <AppErrorBoundary>
+          <SocketProvider>
+            <Suspense fallback={<GlobalLoader />}>
+              <Routes>
+                <Route path="/login" element={<Login />} />
 
-            <Route path="profile" element={<Profile />} />
+                <Route path="/" element={<ProtectedRoute><MainLayout /></ProtectedRoute>}>
+                  <Route index element={<Navigate to="/forms" replace />} />
 
-            <Route 
-              path="reports" 
-              element={<ProtectedRoute requiredRole="MANAGER"><ReportsView /></ProtectedRoute>} 
-            />
-            <Route 
-              path="companies" 
-              element={<ProtectedRoute requiredRole="ADMIN"><CompaniesManagement /></ProtectedRoute>} 
-            />
-            <Route 
-              path="users" 
-              element={<ProtectedRoute requiredRole="ADMIN"><EmployeesManagement /></ProtectedRoute>} 
-            />
-          </Route>
-          
-          <Route path="*" element={<Navigate to="/" replace />} />
-        </Routes>
-      </Suspense>
-      </SocketProvider>
+                  <Route path="forms">
+                    <Route index element={<FormsManagement />} />
+                    <Route path="new" element={<FormCreateEdit />} />
+                    <Route path=":id" element={<FormDetail />} />
+                    <Route path=":id/edit" element={<FormCreateEdit />} />
+                  </Route>
+
+                  <Route path="profile" element={<Profile />} />
+
+                  <Route
+                    path="reports"
+                    element={<ProtectedRoute requiredRole="MANAGER"><ReportsView /></ProtectedRoute>}
+                  />
+                  <Route
+                    path="companies"
+                    element={<ProtectedRoute requiredRole="ADMIN"><CompaniesManagement /></ProtectedRoute>}
+                  />
+                  <Route
+                    path="users"
+                    element={<ProtectedRoute requiredRole="ADMIN"><EmployeesManagement /></ProtectedRoute>}
+                  />
+                </Route>
+
+                <Route path="*" element={<Navigate to="/" replace />} />
+              </Routes>
+            </Suspense>
+          </SocketProvider>
+        </AppErrorBoundary>
+      </ConnectivityProvider>
     </ToastProvider>
   );
 };
