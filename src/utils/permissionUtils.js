@@ -2,7 +2,7 @@
  * Helper to check if a user has permission for a specific view and action.
  * @param {Object} user - The user object from AuthContext
  * @param {string} view - The view name (e.g., 'Forms', 'Users')
- * @param {string} action - The action name (e.g., 'Mostrar', 'Agregar')
+ * @param {string} action - The action key from the user's role (as returned by the API)
  * @returns {boolean}
  */
 export const hasPermission = (user, view, action) => {
