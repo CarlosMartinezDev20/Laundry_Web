@@ -27,6 +27,7 @@ This is the web application counterpart for the Laundry digitisation challenge. 
 - **End-of-Day Manager Approval**: When a Form is completed, a user with the `MANAGER` or `ADMIN` role can click the "View" action (eye icon). Inside the detail view, an "Approve Form" button strictly upgrades the status to `APPROVED` and locks it against future modifications natively.
 - **Manage Companies & Employees (CRUD)**: Authorized Admins can navigate to `/companies` and `/employees` to perform full Inline Creation, Editing (Updates), and Deletion. Note: `Delete` logic invokes a soft-delete under the hook to protect statistical integrity.
 - **Cumulative Reports**: Navigate to `/reports`. Admins/Managers can filter by time spans to dissect processed standard vs colored laundry volumes, exact sheet sizes, and overall resource consumption (pockets, plastic bags).
+- **App Access Control Center**: Navigate to `/app-permissions`. This premium module allows administrators to manage the mobile application's security posture independently. It features a per-role toggle matrix that dynamically enables or disables features specifically for the Flutter mobile app, enforcing a server-driven UI model.
 
 ## Key Assumptions
 

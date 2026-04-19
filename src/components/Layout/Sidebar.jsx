@@ -10,18 +10,19 @@ import {
   SignOut,
   X,
   Moon,
-  Sun
+  Sun,
+  ShieldCheck,
+  DeviceMobile
 } from '@phosphor-icons/react';
+import { hasPermission } from '../../utils/permissionUtils';
 
 export const Sidebar = ({ isOpen, closeSidebar }) => {
   const { user, logout } = useAuth();
   const { theme, toggleTheme } = useTheme();
   
-  const roleName = (user?.role?.name || '').toUpperCase();
-  const isAdmin = roleName === 'ADMIN' || user?.email === 'admin@laundry.com'; // Fallback for the main admin
-  const isManager = roleName === 'MANAGER' || isAdmin;
   const userInitials = (user?.name || 'AD').substring(0, 2).toUpperCase();
   const userEmail = user?.email || 'admin@laundry.app'; 
+  const displayRole = (user?.role?.name || 'User').toUpperCase();
 
   return (
     <aside className={`sidebar flex flex-col ${isOpen ? 'sidebar-open' : ''}`}>
@@ -35,7 +36,7 @@ export const Sidebar = ({ isOpen, closeSidebar }) => {
           </div>
           <div className="flex flex-col">
             <span className="font-bold text-sm" style={{ lineHeight: '1.2' }}>Laundry Admin</span>
-            <span className="text-xs text-muted" style={{ lineHeight: '1.2' }}>Management</span>
+            <span className="text-xs text-brand font-bold" style={{ lineHeight: '1.2' }}>{displayRole}</span>
           </div>
         </div>
         {isOpen && (
@@ -48,34 +49,57 @@ export const Sidebar = ({ isOpen, closeSidebar }) => {
       <nav className="sidebar-nav" style={{ padding: '0 var(--spacing-4)', marginTop: 'var(--spacing-2)' }}>
         <div className="text-xs text-muted tracking-wider uppercase mb-2 font-semibold" style={{ marginLeft: '0.75rem' }}>Main</div>
         
-        <NavLink to="/forms" onClick={closeSidebar} className={({ isActive }) => `nav-item ${isActive ? 'active' : ''}`}>
-          <FileText size={20} />
-          Forms Management
-        </NavLink>
+        {hasPermission(user, 'Forms', 'View') && (
+          <NavLink to="/forms" onClick={closeSidebar} className={({ isActive }) => `nav-item ${isActive ? 'active' : ''}`}>
+            <FileText size={20} />
+            Forms Management
+          </NavLink>
+        )}
         
-        {isManager && (
+        {hasPermission(user, 'Reports', 'View') && (
           <NavLink to="/reports" onClick={closeSidebar} className={({ isActive }) => `nav-item ${isActive ? 'active' : ''}`}>
             <ChartBar size={20} />
             Reports
           </NavLink>
         )}
 
-        <NavLink to="/profile" onClick={closeSidebar} className={({ isActive }) => `nav-item ${isActive ? 'active' : ''}`}>
-          <Users size={20} />
-          My Profile
-        </NavLink>
+        {hasPermission(user, 'Profile', 'View') && (
+          <NavLink to="/profile" onClick={closeSidebar} className={({ isActive }) => `nav-item ${isActive ? 'active' : ''}`}>
+            <Users size={20} />
+            My Profile
+          </NavLink>
+        )}
         
-        {isManager && (
+        {(hasPermission(user, 'Companies', 'View') || hasPermission(user, 'Users', 'View')) && (
           <>
             <div className="text-xs text-muted tracking-wider uppercase mb-2 mt-6 font-semibold" style={{ marginLeft: '0.75rem' }}>Administration</div>
-            <NavLink to="/companies" onClick={closeSidebar} className={({ isActive }) => `nav-item ${isActive ? 'active' : ''}`}>
-              <Buildings size={20} />
-              Companies
-            </NavLink>
-            <NavLink to="/users" onClick={closeSidebar} className={({ isActive }) => `nav-item ${isActive ? 'active' : ''}`}>
-              <Users size={20} />
-              Users
-            </NavLink>
+            
+            {hasPermission(user, 'Companies', 'View') && (
+              <NavLink to="/companies" onClick={closeSidebar} className={({ isActive }) => `nav-item ${isActive ? 'active' : ''}`}>
+                <Buildings size={20} />
+                Companies
+              </NavLink>
+            )}
+
+            {hasPermission(user, 'Users', 'View') && (
+              <NavLink to="/users" onClick={closeSidebar} className={({ isActive }) => `nav-item ${isActive ? 'active' : ''}`}>
+                <Users size={20} />
+                Users
+              </NavLink>
+            )}
+
+            {hasPermission(user, 'Roles', 'View') && (
+              <>
+                <NavLink to="/roles" onClick={closeSidebar} className={({ isActive }) => `nav-item ${isActive ? 'active' : ''}`}>
+                  <ShieldCheck size={20} />
+                  Web Permissions
+                </NavLink>
+                <NavLink to="/app-permissions" onClick={closeSidebar} className={({ isActive }) => `nav-item ${isActive ? 'active' : ''}`}>
+                  <DeviceMobile size={20} />
+                  App Permissions
+                </NavLink>
+              </>
+            )}
           </>
         )}
       </nav>

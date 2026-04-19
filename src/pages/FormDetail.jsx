@@ -82,7 +82,9 @@ export const FormDetail = () => {
           <div><strong>Approved By:</strong> {form.approvedBy?.name || 'Pending'}</div>
           <div><strong>Pocket Count:</strong> {form.pocketCount}</div>
           <div><strong>Small/Large Bags:</strong> {form.plasticBagsSmall} / {form.plasticBagsLarge}</div>
-          {form.notes && <div className="col-span-2"><strong>Notes:</strong> {form.notes}</div>}
+          <div><strong>H-Finished Pillowcases:</strong> {form.totalTaiesMain}</div>
+          <div><strong>H-Finished Sheets:</strong> {form.totalDrapsMain}</div>
+          {form.notes && <div className="col-span-2 mt-2"><strong>Notes:</strong> {form.notes}</div>}
         </div>
       </Card>
 

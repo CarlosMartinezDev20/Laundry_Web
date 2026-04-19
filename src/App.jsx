@@ -14,6 +14,8 @@ const FormCreateEdit = lazy(() => import('./pages/FormCreateEdit').then(m => ({ 
 const FormDetail = lazy(() => import('./pages/FormDetail').then(m => ({ default: m.FormDetail })));
 const ReportsView = lazy(() => import('./pages/ReportsView').then(m => ({ default: m.ReportsView })));
 const Profile = lazy(() => import('./pages/Profile').then(m => ({ default: m.Profile })));
+const RolePermissions = lazy(() => import('./pages/RolePermissions').then(m => ({ default: m.RolePermissions })));
+const AppPermissions = lazy(() => import('./pages/AppPermissions').then(m => ({ default: m.AppPermissions })));
 
 const ProtectedRoute = ({ children, requiredRole }) => {
   const { user } = useAuth();
@@ -65,6 +67,14 @@ export const App = () => {
             <Route 
               path="users" 
               element={<ProtectedRoute requiredRole="MANAGER"><EmployeesManagement /></ProtectedRoute>} 
+            />
+            <Route 
+              path="roles" 
+              element={<ProtectedRoute requiredRole="ADMIN"><RolePermissions /></ProtectedRoute>} 
+            />
+            <Route 
+              path="app-permissions" 
+              element={<ProtectedRoute requiredRole="ADMIN"><AppPermissions /></ProtectedRoute>} 
             />
           </Route>
           
