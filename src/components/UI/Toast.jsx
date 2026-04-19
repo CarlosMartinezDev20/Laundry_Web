@@ -1,91 +1,84 @@
-import React, { useEffect, useState } from 'react';
-import { CheckCircle, XCircle, Info, X } from '@phosphor-icons/react';
+import React, { useEffect, useState, useRef, useCallback } from 'react';
+import { CheckCircle, XCircle, Info, Warning, X } from '@phosphor-icons/react';
+
+const TOAST_VARIANTS = {
+  success: {
+    icon: <CheckCircle size={20} weight="fill" />,
+    title: 'Operacion exitosa',
+    accent: 'var(--color-success)',
+    toneClass: 'is-success',
+  },
+  error: {
+    icon: <XCircle size={20} weight="fill" />,
+    title: 'Ocurrio un error',
+    accent: 'var(--color-danger)',
+    toneClass: 'is-error',
+  },
+  info: {
+    icon: <Info size={20} weight="fill" />,
+    title: 'Informacion',
+    accent: 'var(--color-brand)',
+    toneClass: 'is-info',
+  },
+  warning: {
+    icon: <Warning size={20} weight="fill" />,
+    title: 'Atencion',
+    accent: 'var(--color-warning)',
+    toneClass: 'is-warning',
+  },
+};
 
 export const Toast = ({ message, type = 'success', onClose, duration = 3000 }) => {
   const [isVisible, setIsVisible] = useState(false);
+  const onCloseRef = useRef(onClose);
+  useEffect(() => {
+    onCloseRef.current = onClose;
+  }, [onClose]);
+
+  const handleClose = useCallback(() => {
+    setIsVisible(false);
+    setTimeout(() => onCloseRef.current(), 260);
+  }, []);
 
   useEffect(() => {
-    // Small delay to trigger animation
     const showTimer = setTimeout(() => setIsVisible(true), 10);
-    
-    const hideTimer = setTimeout(() => {
-      setIsVisible(false);
-      setTimeout(onClose, 300); // Wait for transition before removing
-    }, duration);
-
+    const hideTimer = setTimeout(() => handleClose(), duration);
     return () => {
       clearTimeout(showTimer);
       clearTimeout(hideTimer);
     };
-  }, [duration, onClose]);
+  }, [duration, handleClose]);
 
-  const icons = {
-    success: <CheckCircle size={24} weight="fill" className="text-success" />,
-    error: <XCircle size={24} weight="fill" className="text-danger" />,
-    info: <Info size={24} weight="fill" className="text-brand" />
-  };
-
-  const colors = {
-    success: 'rgba(16, 185, 129, 0.1)',
-    error: 'rgba(239, 68, 68, 0.1)',
-    info: 'rgba(59, 130, 246, 0.1)'
-  };
-  
-  const borderColors = {
-    success: 'var(--color-success)',
-    error: 'var(--color-danger)',
-    info: 'var(--color-brand)'
-  };
+  const variant = TOAST_VARIANTS[type] || TOAST_VARIANTS.info;
 
   return (
-    <div 
-      className="card"
+    <div
+      className={`toast-card ${variant.toneClass} ${isVisible ? 'is-visible' : ''}`}
       style={{
-        display: 'flex',
-        alignItems: 'center',
-        gap: '0.75rem',
-        padding: '0.75rem 1rem',
-        minWidth: '280px',
-        maxWidth: '400px',
-        backgroundColor: 'var(--color-surface)',
-        borderLeft: `4px solid ${borderColors[type]}`,
-        boxShadow: 'var(--shadow-hover)',
-        transform: isVisible ? 'translateX(0) scale(1)' : 'translateX(100%) scale(0.95)',
-        opacity: isVisible ? 1 : 0,
-        transition: 'all 0.3s cubic-bezier(0.16, 1, 0.3, 1)',
-        overflow: 'hidden',
-        pointerEvents: 'auto',
+        '--toast-accent': variant.accent,
+        '--toast-duration': `${duration}ms`,
       }}
+      role="status"
+      aria-live={type === 'error' || type === 'warning' ? 'assertive' : 'polite'}
     >
-      <div style={{ flexShrink: 0, display: 'flex' }}>
-        {icons[type]}
-      </div>
-      
-      <div style={{ flex: 1, fontSize: 'var(--font-size-sm)', fontWeight: 500, color: 'var(--color-text-main)' }}>
-        {message}
+      <div className="toast-icon-wrap" aria-hidden="true">
+        {variant.icon}
       </div>
 
-      <button 
-        onClick={() => {
-          setIsVisible(false);
-          setTimeout(onClose, 300);
-        }}
-        style={{
-          background: 'none',
-          border: 'none',
-          cursor: 'pointer',
-          color: 'var(--color-text-muted)',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          padding: '4px',
-          borderRadius: 'var(--radius-sm)'
-        }}
-        onMouseOver={(e) => e.currentTarget.style.backgroundColor = 'var(--color-surface-hover)'}
-        onMouseOut={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
+      <div className="toast-content">
+        <p className="toast-title">{variant.title}</p>
+        <p className="toast-message">{message}</p>
+      </div>
+
+      <button
+        onClick={handleClose}
+        className="toast-close-btn"
+        aria-label="Cerrar notificacion"
       >
         <X size={16} weight="bold" />
       </button>
+
+      <div className="toast-progress" aria-hidden="true" />
     </div>
   );
 };

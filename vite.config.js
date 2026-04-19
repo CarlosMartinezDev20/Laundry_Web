@@ -7,9 +7,16 @@ export default defineConfig({
   build: {
     rollupOptions: {
       output: {
-        manualChunks: {
-          vendor: ['react', 'react-dom', 'react-router-dom'],
-          icons: ['@phosphor-icons/react']
+        manualChunks(id) {
+          if (
+            id.includes('node_modules/react/') ||
+            id.includes('node_modules/react-dom/') ||
+            id.includes('node_modules/react-router')
+          ) {
+            return 'vendor';
+          }
+          if (id.includes('@phosphor-icons')) return 'icons';
+          if (id.includes('socket.io')) return 'socket';
         }
       }
     }

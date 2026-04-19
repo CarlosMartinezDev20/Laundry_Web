@@ -7,6 +7,18 @@ export class ApiError extends Error {
   }
 }
 
+/** Thrown when fetch fails (network, DNS, CORS, server down). */
+export class NetworkError extends Error {
+  constructor(message, code = 'NETWORK') {
+    super(message);
+    this.name = 'NetworkError';
+    this.code = code;
+  }
+}
+
+const NETWORK_MESSAGE =
+  'No hay conexión o el servidor no responde. Comprueba tu red e inténtalo de nuevo.';
+
 async function request(endpoint, options = {}) {
   const token = localStorage.getItem('token');
   
@@ -19,10 +31,16 @@ async function request(endpoint, options = {}) {
     headers['Authorization'] = `Bearer ${token}`;
   }
 
-  const response = await fetch(`${API_URL}${endpoint}`, {
-    ...options,
-    headers,
-  });
+  let response;
+  try {
+    response = await fetch(`${API_URL}${endpoint}`, {
+      ...options,
+      headers,
+    });
+  } catch (e) {
+    if (e?.name === 'AbortError') throw e;
+    throw new NetworkError(NETWORK_MESSAGE, 'NETWORK');
+  }
 
   if (!response.ok) {
     if (response.status === 401) {
@@ -40,22 +58,26 @@ async function request(endpoint, options = {}) {
       if (Array.isArray(errorMessage)) {
         errorMessage = errorMessage.join(', ');
       }
-    } catch (e) {
+    } catch {
       // Fallback if not JSON
     }
     
     throw new ApiError(errorMessage, response.status);
   }
 
-  if (response.status === 204) {
-    return null; // No content
-  }
+  // Handle empty responses (204 No Content, or any success with no body)
+  const text = await response.text();
+  if (!text) return null;
 
-  return response.json();
+  try {
+    return JSON.parse(text);
+  } catch {
+    return null;
+  }
 }
 
 export const api = {
-  get: (endpoint) => request(endpoint),
+  get: (endpoint, options = {}) => request(endpoint, options),
   post: (endpoint, body) => request(endpoint, { method: 'POST', body: JSON.stringify(body) }),
   patch: (endpoint, body) => request(endpoint, { method: 'PATCH', body: JSON.stringify(body) }),
   delete: (endpoint) => request(endpoint, { method: 'DELETE' }),
