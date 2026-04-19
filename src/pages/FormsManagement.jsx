@@ -719,7 +719,7 @@ export const FormsManagement = () => {
           </div>
         ) : formsFetchError ? (
           <ErrorState
-            title="No se pudieron cargar los formularios"
+            title="Could not load forms"
             message={formsFetchError}
             onRetry={() => fetchForms(undefined, filters)}
             className="error-state--fill"

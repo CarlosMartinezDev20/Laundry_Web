@@ -282,7 +282,7 @@ export const ReportsView = () => {
         </div>
         {companiesError ? (
           <ErrorState
-            title="No se pudieron cargar las empresas"
+            title="Could not load companies"
             message={companiesError}
             onRetry={loadCompanies}
           />

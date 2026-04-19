@@ -17,7 +17,7 @@ export class NetworkError extends Error {
 }
 
 const NETWORK_MESSAGE =
-  'No hay conexión o el servidor no responde. Comprueba tu red e inténtalo de nuevo.';
+  'No network connection or the server did not respond. Check your connection and try again.';
 
 async function request(endpoint, options = {}) {
   const token = localStorage.getItem('token');

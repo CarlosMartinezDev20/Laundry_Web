@@ -31,7 +31,7 @@ export const Login = () => {
         navigate('/');
       } catch (err) {
         if (err instanceof ApiError && err.status === 401) {
-          setError(err.message || 'Credenciales incorrectas. Revisa email y contraseña.');
+          setError(err.message || 'Invalid credentials. Check your email and password.');
         } else {
           setError(formatApiError(err));
         }

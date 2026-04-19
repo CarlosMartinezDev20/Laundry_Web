@@ -135,7 +135,7 @@ export const CompaniesManagement = () => {
       <Card style={{ padding: 0, overflow: 'hidden' }}>
         {!loading && fetchError ? (
           <ErrorState
-            title="No se pudieron cargar las empresas"
+            title="Could not load companies"
             message={fetchError}
             onRetry={fetchCompanies}
             className="error-state--fill"

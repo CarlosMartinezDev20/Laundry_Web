@@ -774,6 +774,36 @@ textarea.input-field {
   .lg\:col-span-1  { grid-column: span 1; }
 }
 
+/* ─── Permissions pages (role list + matrix) ────────────── */
+.permissions-shell {
+  display: flex;
+  flex-direction: column;
+  min-height: 420px;
+}
+.permissions-sidebar {
+  flex-shrink: 0;
+  width: 100%;
+  background: var(--color-surface);
+  border-bottom: 1px solid var(--color-border);
+}
+@media (min-width: 640px) {
+  .permissions-shell {
+    flex-direction: row;
+    align-items: stretch;
+  }
+  .permissions-sidebar {
+    width: 220px;
+    border-bottom: none;
+    border-right: 1px solid var(--color-border);
+  }
+}
+.permissions-main {
+  flex: 1;
+  min-width: 0;
+  padding: var(--spacing-6);
+  background: var(--color-background);
+}
+
 /* ─── Mobile Sidebar ────────────────────────────────────── */
 @media (max-width: 1023px) {
   .sidebar {

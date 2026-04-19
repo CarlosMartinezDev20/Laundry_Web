@@ -24,7 +24,7 @@ export const SocketProvider = ({ children }) => {
       return;
     }
 
-    const apiUrl = (import.meta.env.VITE_API_URL || 'http://localhost:3000').replace('/api', '');
+    const apiUrl = (import.meta.env.VITE_API_URL || 'http://localhost:8080').replace('/api', '');
 
     const newSocket = io(apiUrl, {
       auth: { token },
@@ -42,7 +42,7 @@ export const SocketProvider = ({ children }) => {
       if (now - lastConnectErrToast < 12000) return;
       lastConnectErrToast = now;
       toastRef.current.error(
-        'No se pudo conectar en tiempo real. La app sigue funcionando; los avisos al instante pueden fallar.',
+        'Could not connect for real-time updates. The app still works; instant notifications may not arrive until the connection recovers.',
         4800,
       );
     });

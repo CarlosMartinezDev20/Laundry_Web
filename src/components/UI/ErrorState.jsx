@@ -6,10 +6,10 @@ import { ArrowsClockwise, CloudWarning } from '@phosphor-icons/react';
  * Minimal inline / full-area error placeholder with optional retry.
  */
 export const ErrorState = ({
-  title = 'No se pudo cargar',
+  title = 'Could not load',
   message,
   onRetry,
-  retryLabel = 'Reintentar',
+  retryLabel = 'Try again',
   className = '',
 }) => (
   <div className={`error-state ${className}`.trim()}>

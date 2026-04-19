@@ -258,7 +258,7 @@ export const FormCreateEdit = () => {
           <Button onClick={() => navigate('/forms')}><CaretLeft size={16} /> Volver</Button>
         </div>
         <ErrorState
-          title="No se pudo cargar el formulario"
+          title="Could not load the form"
           message={loadError}
           onRetry={retryLoad}
           className="error-state--fill"

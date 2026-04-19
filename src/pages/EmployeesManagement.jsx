@@ -163,7 +163,7 @@ export const EmployeesManagement = () => {
       <Card style={{ padding: 0, overflow: 'hidden' }}>
         {!loading && fetchError ? (
           <ErrorState
-            title="No se pudieron cargar los usuarios"
+            title="Could not load users"
             message={fetchError}
             onRetry={fetchData}
             className="error-state--fill"

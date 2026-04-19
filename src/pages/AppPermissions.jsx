@@ -1,12 +1,10 @@
-import React, { useState, useEffect } from 'react';
-import { useAuth } from '../context/AuthContext';
+import React, { useState, useEffect, useCallback } from 'react';
 import { api as ApiClient } from '../services/api';
-import { 
-  DeviceMobile, 
-  CheckSquare, 
-  Square, 
-  FloppyDisk, 
-  CaretRight,
+import {
+  DeviceMobile,
+  CheckSquare,
+  Square,
+  FloppyDisk,
   Layout,
   Users,
   Buildings,
@@ -14,68 +12,93 @@ import {
   Books,
   Graph,
   ShieldCheck,
-  Info
 } from '@phosphor-icons/react';
 import { useToast } from '../context/ToastContext';
+import { Card } from '../components/UI/Card';
+import { Button } from '../components/UI/Button';
+import { ErrorState } from '../components/UI/ErrorState';
+import { formatApiError } from '../utils/apiErrors';
+
+const viewIcons = {
+  Forms: <Layout size={18} weight="regular" />,
+  Reports: <Graph size={18} weight="regular" />,
+  Users: <Users size={18} weight="regular" />,
+  Companies: <Buildings size={18} weight="regular" />,
+  Catalog: <Books size={18} weight="regular" />,
+  Profile: <IdentificationCard size={18} weight="regular" />,
+  default: <ShieldCheck size={18} weight="regular" />,
+};
+
+const permToggleStyle = (on) => ({
+  display: 'flex',
+  alignItems: 'center',
+  gap: 'var(--spacing-2)',
+  padding: 'var(--spacing-2) var(--spacing-3)',
+  borderRadius: 'var(--radius-md)',
+  border: `1px solid ${on ? 'var(--color-border-strong)' : 'var(--color-border)'}`,
+  background: on ? 'var(--color-brand-light)' : 'var(--color-surface)',
+  color: on ? 'var(--color-brand-text)' : 'var(--color-text-muted)',
+  fontSize: 'var(--font-size-xs)',
+  fontWeight: on ? 600 : 500,
+  cursor: 'pointer',
+  width: '100%',
+  textAlign: 'left',
+  transition: 'border-color var(--motion-sm) var(--ease-in-out), background var(--motion-sm) var(--ease-in-out)',
+});
 
 export const AppPermissions = () => {
-  const { user } = useAuth();
   const toast = useToast();
   const [roles, setRoles] = useState([]);
   const [availablePermissions, setAvailablePermissions] = useState([]);
   const [selectedRole, setSelectedRole] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [fetchError, setFetchError] = useState(null);
   const [saving, setSaving] = useState(false);
 
-  // Consistency with Web Permissions icon mapping
-  const viewIcons = {
-    'Forms': <Layout size={24} weight="duotone" />,
-    'Reports': <Graph size={24} weight="duotone" />,
-    'Users': <Users size={24} weight="duotone" />,
-    'Companies': <Buildings size={24} weight="duotone" />,
-    'Catalog': <Books size={24} weight="duotone" />,
-    'Profile': <IdentificationCard size={24} weight="duotone" />,
-    'default': <ShieldCheck size={24} weight="duotone" />
-  };
-
-  useEffect(() => {
-    fetchInitialData();
-  }, []);
-
-  const fetchInitialData = async () => {
+  const fetchInitialData = useCallback(async () => {
+    setFetchError(null);
     try {
       setLoading(true);
       const [rolesRes, permissionsRes] = await Promise.all([
         ApiClient.get('/roles'),
-        ApiClient.get('/roles/available-permissions')
+        ApiClient.get('/roles/available-permissions'),
       ]);
-      
-      const rolesData = Array.isArray(rolesRes) ? rolesRes : (rolesRes.data || []);
-      const permissionsData = permissionsRes.view_actions || (permissionsRes.data?.view_actions || []);
+
+      const rolesData = Array.isArray(rolesRes) ? rolesRes : rolesRes.data || [];
+      const permissionsData =
+        permissionsRes.view_actions || permissionsRes.data?.view_actions || [];
 
       setRoles(rolesData);
       setAvailablePermissions(permissionsData);
-      
+
       if (rolesData.length > 0) {
         setSelectedRole(rolesData[0]);
+      } else {
+        setSelectedRole(null);
       }
-    } catch (error) {
-      toast.error('Error loading permissions data');
+    } catch (err) {
+      const msg = formatApiError(err);
+      setFetchError(msg);
+      toast.error(msg);
     } finally {
       setLoading(false);
     }
-  };
+  }, [toast]);
+
+  useEffect(() => {
+    fetchInitialData();
+  }, [fetchInitialData]);
 
   const handleTogglePermission = (view, action) => {
     if (!selectedRole) return;
 
     const currentPermissions = [...(selectedRole.permissions_mobile || [])];
-    const viewEntry = currentPermissions.find(p => p.view === view);
+    const viewEntry = currentPermissions.find((p) => p.view === view);
 
     if (viewEntry) {
       const actions = [...viewEntry.actions];
       if (actions.includes(action)) {
-        viewEntry.actions = actions.filter(a => a !== action);
+        viewEntry.actions = actions.filter((a) => a !== action);
       } else {
         viewEntry.actions = [...actions, action];
       }
@@ -90,173 +113,224 @@ export const AppPermissions = () => {
     if (!selectedRole) return;
     try {
       setSaving(true);
-      await ApiClient.patch(`/roles/${selectedRole.id}/permissions-mobile`, selectedRole.permissions_mobile);
-      toast.success('Mobile permissions updated successfully');
-      setRoles(roles.map(r => r.id === selectedRole.id ? selectedRole : r));
-    } catch (error) {
-      toast.error('Failed to update app permissions');
+      await ApiClient.patch(
+        `/roles/${selectedRole.id}/permissions-mobile`,
+        selectedRole.permissions_mobile,
+      );
+      toast.success('Mobile permissions updated');
+      setRoles(roles.map((r) => (r.id === selectedRole.id ? selectedRole : r)));
+    } catch (err) {
+      toast.error(formatApiError(err));
     } finally {
       setSaving(false);
     }
   };
 
-  if (loading) return (
-    <div className="flex flex-col items-center justify-center p-20 animate-pulse">
-      <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-brand mb-4"></div>
-      <p className="text-muted font-medium">Syncing security protocols...</p>
-    </div>
-  );
+  const activeModules =
+    selectedRole?.permissions_mobile?.filter((p) => (p.actions || []).length > 0).length ?? 0;
 
   return (
-    <div className="flex flex-col h-full animate-fade-in" style={{ backgroundColor: 'transparent' }}>
-      
-      {/* Matching Header Style */}
-      <header className="flex items-center justify-between p-6 bg-white border-bottom border-border" style={{ borderBottom: '1px solid var(--color-border)' }}>
-        <div className="flex items-center gap-4">
-          <div className="flex items-center justify-center bg-brand text-white rounded-xl shadow-lg shadow-brand/20" style={{ width: '48px', height: '48px' }}>
-            <DeviceMobile size={28} weight="fill" />
-          </div>
-          <div>
-            <h1 className="text-xl font-bold mb-0">App Access Management</h1>
-            <p className="text-muted text-xs font-medium uppercase tracking-widest">Mobile Exclusive RBAC Control</p>
-          </div>
+    <div className="flex flex-col gap-6 animate-fade-in">
+      <div className="page-header">
+        <div>
+          <h1 className="page-title">App permissions</h1>
+          <p className="page-subtitle">Mobile app access by role (separate from the dashboard)</p>
         </div>
-
-        <button 
+        <Button
+          variant="primary"
           onClick={handleSave}
-          disabled={saving}
-          className="btn btn-primary flex items-center gap-2 px-6 py-2.5 rounded-xl shadow-lg hover:translate-y-[-1px] transition-all"
+          disabled={saving || !selectedRole || !!fetchError}
+          className="w-full sm:w-fit"
         >
-          <FloppyDisk size={20} weight="fill" />
-          <span>{saving ? 'Syncing...' : 'Apply App Changes'}</span>
-        </button>
-      </header>
-
-      <div className="flex flex-1 overflow-hidden">
-        
-        {/* Matching Selection Panel */}
-        <aside className="w-72 bg-white border-r border-border p-6 flex flex-col gap-8">
-          <div>
-            <h3 className="text-xs font-bold text-muted uppercase tracking-widest mb-4">Target Roles</h3>
-            <div className="flex flex-col gap-2">
-              {roles.map(role => {
-                const isActive = selectedRole?.id === role.id;
-                return (
-                  <button
-                    key={role.id}
-                    onClick={() => setSelectedRole(role)}
-                    className={`flex items-center justify-between p-3.5 px-4 rounded-xl transition-all duration-300 ${
-                      isActive 
-                        ? 'bg-brand text-white shadow-xl shadow-brand/15' 
-                        : 'hover:bg-brand-light/20 text-text-main'
-                    }`}
-                  >
-                    <span className="font-bold flex items-center gap-3">
-                      <div className={`w-2 h-2 rounded-full ${isActive ? 'bg-white' : 'bg-brand'}`}></div>
-                      {role.name}
-                    </span>
-                    {isActive && <CaretRight size={16} weight="bold" />}
-                  </button>
-                );
-              })}
-            </div>
-          </div>
-
-          <div className="mt-auto p-4 bg-background rounded-2xl border border-border">
-            <div className="flex items-center gap-2 mb-2">
-              <Info size={20} weight="fill" className="text-brand" />
-              <span className="text-xs font-bold uppercase">App Isolation</span>
-            </div>
-            <p className="text-xs text-muted leading-relaxed">
-              These changes only affect the mobile application flow. Dashboard permissions remain separate.
-            </p>
-          </div>
-        </aside>
-
-        {/* Matching Permissions Canvas */}
-        <main className="flex-1 overflow-y-auto p-8" style={{ backgroundColor: '#f8fafc' }}>
-          {selectedRole ? (
-            <div className="max-w-4xl mx-auto space-y-8">
-              
-              <div className="flex items-end justify-between mb-2">
-                <div>
-                  <h2 className="text-3xl font-black text-text-main tracking-tight">
-                    {selectedRole.name} <span className="text-brand font-medium">App Matrix</span>
-                  </h2>
-                  <p className="text-muted mt-1">Configure mobile-only access for each system module.</p>
-                </div>
-                <div className="flex items-center gap-2 p-2 px-4 bg-brand/5 border border-brand/10 rounded-full">
-                  <span className="text-xs font-bold text-brand">{selectedRole.permissions_mobile?.length || 0} Modules Active</span>
-                </div>
-              </div>
-
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                {availablePermissions.map(viewGroup => {
-                  const viewPerm = selectedRole.permissions_mobile?.find(p => p.view === viewGroup.view);
-                  const icon = viewIcons[viewGroup.view] || viewIcons['default'];
-                  
-                  return (
-                    <div 
-                      key={viewGroup.view} 
-                      className="group bg-white rounded-3xl p-6 border border-border/60 shadow-sm hover:shadow-xl hover:border-brand/20 transition-all duration-400 overflow-hidden relative"
-                    >
-                      {/* Decorative Background Element */}
-                      <div className="absolute top-0 right-0 p-4 opacity-[0.03] group-hover:scale-125 transition-transform duration-700 text-brand">
-                        {icon}
-                      </div>
-
-                      <div className="flex items-center gap-4 mb-6 relative">
-                        <div className="flex items-center justify-center p-3.5 bg-brand-light/30 text-brand rounded-2xl shadow-inner">
-                          {icon}
-                        </div>
-                        <div>
-                          <h4 className="font-extrabold text-lg text-text-main">{viewGroup.label}</h4>
-                          <span className="text-[10px] font-bold text-brand uppercase tracking-tighter opacity-60">Mobile Route: {viewGroup.view}</span>
-                        </div>
-                      </div>
-                      
-                      <div className="grid grid-cols-2 gap-2 relative">
-                        {viewGroup.actions.map(action => {
-                          const isChecked = viewPerm?.actions.includes(action);
-                          return (
-                            <button
-                              key={action}
-                              onClick={() => handleTogglePermission(viewGroup.view, action)}
-                              className={`flex items-center gap-2.5 p-2.5 px-4 rounded-xl border-2 transition-all duration-200 ${
-                                isChecked 
-                                  ? 'bg-brand/5 border-brand/40 text-brand font-bold shadow-sm' 
-                                  : 'border-transparent bg-background/50 text-text-muted hover:bg-muted'
-                              }`}
-                            >
-                              <div className={`transition-transform duration-300 ${isChecked ? 'scale-110' : 'scale-100 opacity-40'}`}>
-                                {isChecked ? (
-                                  <CheckSquare size={20} weight="fill" />
-                                ) : (
-                                  <Square size={20} />
-                                )}
-                              </div>
-                              <span className="text-xs uppercase font-bold tracking-tighter">{action}</span>
-                            </button>
-                          );
-                        })}
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-              
-              <div className="pt-10 pb-20 text-center">
-                <p className="text-muted text-sm italic">End of mobile-specific security policy.</p>
-              </div>
-            </div>
-          ) : (
-            <div className="flex flex-col items-center justify-center h-full text-muted space-y-4 animate-pulse">
-              <DeviceMobile size={80} weight="duotone" className="opacity-10" />
-              <p className="text-lg font-medium">Select a role to manage app access</p>
-            </div>
-          )}
-        </main>
+          <FloppyDisk size={16} weight="regular" />
+          {saving ? 'Saving…' : 'Save changes'}
+        </Button>
       </div>
+
+      {!loading && fetchError ? (
+        <Card style={{ padding: 0, overflow: 'hidden' }}>
+          <ErrorState
+            title="Could not load permissions"
+            message={fetchError}
+            onRetry={fetchInitialData}
+            className="error-state--fill"
+          />
+        </Card>
+      ) : loading ? (
+        <Card style={{ padding: 'var(--spacing-6)' }}>
+          <div className="flex flex-col sm:flex-row gap-6" style={{ minHeight: 280 }}>
+            <div
+              className="skeleton"
+              style={{
+                width: '100%',
+                maxWidth: 220,
+                height: 200,
+                borderRadius: 'var(--radius-lg)',
+                flexShrink: 0,
+              }}
+            />
+            <div className="flex-1 flex flex-col gap-4" style={{ minWidth: 0 }}>
+              <div className="skeleton" style={{ height: 24, width: '36%', borderRadius: 'var(--radius-sm)' }} />
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                {[1, 2, 3, 4].map((i) => (
+                  <div
+                    key={i}
+                    className="skeleton"
+                    style={{ height: 112, borderRadius: 'var(--radius-lg)' }}
+                  />
+                ))}
+              </div>
+            </div>
+          </div>
+        </Card>
+      ) : (
+        <Card style={{ padding: 0, overflow: 'hidden' }}>
+          <div className="permissions-shell">
+            <aside className="permissions-sidebar flex flex-col">
+              <div
+                className="flex flex-col flex-1"
+                style={{ padding: 'var(--spacing-4) var(--spacing-3)' }}
+              >
+                <div className="nav-group-heading">Roles</div>
+                <div className="sidebar-nav" style={{ paddingTop: 'var(--spacing-2)' }}>
+                  {roles.map((role) => {
+                    const isActive = selectedRole?.id === role.id;
+                    return (
+                      <button
+                        key={role.id}
+                        type="button"
+                        onClick={() => setSelectedRole(role)}
+                        className={`nav-item${isActive ? ' active' : ''}`}
+                      >
+                        {role.name}
+                      </button>
+                    );
+                  })}
+                </div>
+                <div style={{ marginTop: 'auto', paddingTop: 'var(--spacing-4)' }}>
+                  <p className="text-xs text-subtle" style={{ lineHeight: 1.55 }}>
+                    Changes here apply only to the mobile app. Web dashboard permissions are managed
+                    separately.
+                  </p>
+                </div>
+              </div>
+            </aside>
+
+            <div className="permissions-main">
+              {selectedRole ? (
+                <>
+                  <div
+                    className="flex flex-col sm:flex-row sm:items-end sm:justify-between gap-3"
+                    style={{ marginBottom: 'var(--spacing-5)' }}
+                  >
+                    <div>
+                      <h2
+                        style={{
+                          fontSize: 'var(--font-size-lg)',
+                          fontWeight: 700,
+                          color: 'var(--color-text-main)',
+                          letterSpacing: '-0.02em',
+                          marginBottom: 4,
+                        }}
+                      >
+                        {selectedRole.name}
+                      </h2>
+                      <p className="page-subtitle" style={{ marginTop: 0 }}>
+                        Enable views and actions for this role in the app.
+                      </p>
+                    </div>
+                    <span className="sidebar-role-badge">{activeModules} modules with access</span>
+                  </div>
+
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    {availablePermissions.map((viewGroup) => {
+                      const viewPerm = selectedRole.permissions_mobile?.find(
+                        (p) => p.view === viewGroup.view,
+                      );
+                      const icon = viewIcons[viewGroup.view] || viewIcons.default;
+
+                      return (
+                        <div
+                          key={viewGroup.view}
+                          style={{
+                            background: 'var(--color-surface)',
+                            border: '1px solid var(--color-border)',
+                            borderRadius: 'var(--radius-lg)',
+                            padding: 'var(--spacing-5)',
+                            boxShadow: 'var(--shadow-xs)',
+                          }}
+                        >
+                          <div
+                            className="flex items-start gap-3"
+                            style={{ marginBottom: 'var(--spacing-4)' }}
+                          >
+                            <div
+                              className="flex items-center justify-center flex-shrink-0"
+                              style={{
+                                width: 40,
+                                height: 40,
+                                borderRadius: 'var(--radius-md)',
+                                background: 'var(--color-brand-light)',
+                                color: 'var(--color-brand-text)',
+                              }}
+                            >
+                              {icon}
+                            </div>
+                            <div style={{ minWidth: 0 }}>
+                              <h3
+                                style={{
+                                  fontSize: 'var(--font-size-base)',
+                                  fontWeight: 600,
+                                  color: 'var(--color-text-main)',
+                                  marginBottom: 2,
+                                }}
+                              >
+                                {viewGroup.label}
+                              </h3>
+                              <p className="text-xs text-subtle" style={{ fontWeight: 500 }}>
+                                {viewGroup.view}
+                              </p>
+                            </div>
+                          </div>
+
+                          <div className="grid grid-cols-2 gap-2">
+                            {viewGroup.actions.map((action) => {
+                              const isChecked = (viewPerm?.actions || []).includes(action);
+                              return (
+                                <button
+                                  key={action}
+                                  type="button"
+                                  onClick={() => handleTogglePermission(viewGroup.view, action)}
+                                  style={permToggleStyle(isChecked)}
+                                >
+                                  {isChecked ? (
+                                    <CheckSquare size={18} weight="fill" />
+                                  ) : (
+                                    <Square size={18} weight="regular" />
+                                  )}
+                                  <span>{action}</span>
+                                </button>
+                              );
+                            })}
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </>
+              ) : (
+                <div className="empty-state" style={{ padding: 'var(--spacing-10) var(--spacing-6)' }}>
+                  <DeviceMobile size={48} weight="thin" />
+                  <div>
+                    <div className="empty-state-title">No roles yet</div>
+                    <div className="empty-state-desc">Create a role first to configure app access.</div>
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
+        </Card>
+      )}
     </div>
   );
 };

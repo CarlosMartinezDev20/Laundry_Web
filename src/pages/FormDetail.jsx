@@ -151,7 +151,7 @@ export const FormDetail = () => {
           </Button>
         </div>
         <ErrorState
-          title="No se pudo cargar el formulario"
+          title="Could not load the form"
           message={loadError}
           onRetry={fetchForm}
           className="error-state--fill"

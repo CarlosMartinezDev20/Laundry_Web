@@ -4,25 +4,25 @@ import { CheckCircle, XCircle, Info, Warning, X } from '@phosphor-icons/react';
 const TOAST_VARIANTS = {
   success: {
     icon: <CheckCircle size={20} weight="fill" />,
-    title: 'Operacion exitosa',
+    title: 'Success',
     accent: 'var(--color-success)',
     toneClass: 'is-success',
   },
   error: {
     icon: <XCircle size={20} weight="fill" />,
-    title: 'Ocurrio un error',
+    title: 'Something went wrong',
     accent: 'var(--color-danger)',
     toneClass: 'is-error',
   },
   info: {
     icon: <Info size={20} weight="fill" />,
-    title: 'Informacion',
+    title: 'Notice',
     accent: 'var(--color-brand)',
     toneClass: 'is-info',
   },
   warning: {
     icon: <Warning size={20} weight="fill" />,
-    title: 'Atencion',
+    title: 'Warning',
     accent: 'var(--color-warning)',
     toneClass: 'is-warning',
   },
@@ -73,7 +73,7 @@ export const Toast = ({ message, type = 'success', onClose, duration = 3000 }) =
       <button
         onClick={handleClose}
         className="toast-close-btn"
-        aria-label="Cerrar notificacion"
+        aria-label="Dismiss notification"
       >
         <X size={16} weight="bold" />
       </button>

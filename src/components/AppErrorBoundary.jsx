@@ -25,14 +25,14 @@ export class AppErrorBoundary extends React.Component {
             <div className="app-error-fallback-icon" aria-hidden>
               <Bug size={32} weight="duotone" />
             </div>
-            <h1 className="app-error-fallback-title">Algo salio mal</h1>
+            <h1 className="app-error-fallback-title">Something went wrong</h1>
             <p className="app-error-fallback-text">
-              La interfaz encontro un error inesperado. Puedes recargar la aplicacion para
-              continuar. Si el problema persiste, contacta al administrador.
+              The interface hit an unexpected error. You can reload the application to continue. If
+              the problem persists, contact your administrator.
             </p>
             <Button type="button" variant="primary" onClick={this.handleReload} className="app-error-fallback-btn">
               <ArrowsClockwise size={18} />
-              Recargar aplicacion
+              Reload application
             </Button>
           </div>
         </div>

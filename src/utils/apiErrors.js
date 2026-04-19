@@ -1,7 +1,7 @@
 import { ApiError, NetworkError } from '../services/api';
 
 /**
- * User-facing Spanish copy for API and network failures.
+ * User-facing copy for API and network failures.
  * @param {unknown} err
  * @param {{ online?: boolean }} [opts]
  */
@@ -12,7 +12,7 @@ export function formatApiError(err, opts = {}) {
       : typeof navigator === 'undefined' || navigator.onLine;
 
   if (!online) {
-    return 'Sin conexión. Revisa tu red e inténtalo cuando vuelvas a estar en línea.';
+    return 'You appear to be offline. Check your network and try again when you are back online.';
   }
 
   if (err instanceof NetworkError) {
@@ -25,16 +25,16 @@ export function formatApiError(err, opts = {}) {
 
   if (err instanceof ApiError) {
     if (err.status >= 500) {
-      return 'El servidor no está disponible en este momento. Inténtalo más tarde.';
+      return 'The server is unavailable right now. Please try again later.';
     }
     if (err.status === 408 || err.status === 504) {
-      return 'La petición tardó demasiado. Inténtalo de nuevo.';
+      return 'The request took too long. Please try again.';
     }
-    return err.message || 'No se pudo completar la operación.';
+    return err.message || 'The operation could not be completed.';
   }
 
   const msg = err && typeof err === 'object' && 'message' in err ? String(err.message) : '';
-  return msg || 'Algo salió mal. Inténtalo de nuevo.';
+  return msg || 'Something went wrong. Please try again.';
 }
 
 export function isAbortError(err) {
