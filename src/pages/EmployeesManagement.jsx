@@ -11,11 +11,14 @@ import { useToast } from '../context/ToastContext';
 import { ErrorState } from '../components/UI/ErrorState';
 import { formatApiError } from '../utils/apiErrors';
 import { Trash, PencilSimple, UsersThree, Plus } from '@phosphor-icons/react';
+import { useAuth } from '../context/AuthContext';
+import { hasPermission } from '../utils/permissionUtils';
 
 const EMPTY_CREATE_USER = { name: '', email: '', password: '', initials: '', roleId: '' };
 
 export const EmployeesManagement = () => {
   const toast = useToast();
+  const { user: currentUser } = useAuth(); // renamed to avoid conflict with users list
   const [users, setUsers]     = useState([]);
   const [roles, setRoles]     = useState([]);
   const [loading, setLoading] = useState(true);
@@ -40,15 +43,20 @@ export const EmployeesManagement = () => {
 
   const fetchData = useCallback(async () => {
     setFetchError(null);
+    setLoading(true);
     try {
-      const [usersData, rolesData] = await Promise.all([
-        api.get('/users'),
-        api.get('/roles'),
-      ]);
+      // Intentamos cargar ambos, pero no dejamos que la falla de Roles rompa Usuarios
+      const usersData = await api.get('/users');
       setUsers(usersData);
-      setRoles(rolesData);
-      if (rolesData.length > 0) {
-        setCreateData((prev) => ({ ...prev, roleId: rolesData[0].id }));
+      
+      try {
+        const rolesData = await api.get('/roles');
+        setRoles(rolesData);
+        if (rolesData.length > 0 && !createDataRef.current.roleId) {
+          setCreateData((prev) => ({ ...prev, roleId: rolesData[0].id }));
+        }
+      } catch (roleErr) {
+        console.warn('[EmployeesManagement] Could not load roles list:', roleErr);
       }
     } catch (err) {
       const msg = formatApiError(err);
@@ -154,9 +162,11 @@ export const EmployeesManagement = () => {
           <h1 className="page-title">Users</h1>
           <p className="page-subtitle">Manage system users and roles</p>
         </div>
-        <Button variant="primary" onClick={() => setCreateModal(true)} className="w-full sm:w-fit">
-          <Plus size={16} /> Add User
-        </Button>
+        {hasPermission(currentUser, 'Users', 'Add') && (
+          <Button variant="primary" onClick={() => setCreateModal(true)} className="w-full sm:w-fit">
+            <Plus size={16} /> Add User
+          </Button>
+        )}
       </div>
 
       {/* Table */}
@@ -187,16 +197,20 @@ export const EmployeesManagement = () => {
                   </td>
                   <td>
                     <div className="flex gap-2">
-                      <button className="icon-btn" onClick={() => openEdit(employee)} title="Edit user">
-                        <PencilSimple size={15} />
-                      </button>
-                      <button
-                        className="icon-btn danger"
-                        onClick={() => setDeleteModal({ isOpen: true, id: employee.id })}
-                        title="Delete user"
-                      >
-                        <Trash size={15} />
-                      </button>
+                      {hasPermission(currentUser, 'Users', 'Edit') && (
+                        <button className="icon-btn" onClick={() => openEdit(employee)} title="Edit user">
+                          <PencilSimple size={15} />
+                        </button>
+                      )}
+                      {hasPermission(currentUser, 'Users', 'Delete') && (
+                        <button
+                          className="icon-btn danger"
+                          onClick={() => setDeleteModal({ isOpen: true, id: employee.id })}
+                          title="Delete user"
+                        >
+                          <Trash size={15} />
+                        </button>
+                      )}
                     </div>
                   </td>
                 </tr>

@@ -6,20 +6,19 @@
  * @returns {boolean}
  */
 export const hasPermission = (user, view, action) => {
-  // Emergency super-admin back door (optional but recommended)
-  if (user?.email === 'admin@laundry.com') {
-    return true;
-  }
+  const roleName = (user?.role?.name || user?.role || '').toString().toUpperCase();
+  if (roleName === 'ADMIN') return true;
 
+  const targetView = view.trim().toLowerCase();
+  const targetAction = (action || 'View').trim().toLowerCase();
   const permissions = user?.role?.permissions || [];
   
-  // If we only provided the view, check if the view exists in permissions
-  if (!action) {
-    return permissions.some(p => p.view === view && p.actions.includes('View'));
-  }
+  const foundModule = permissions.find(p => {
+    const viewName = (p.view || '').toString().trim().toLowerCase();
+    return viewName === targetView || viewName.includes(targetView);
+  });
 
-  const viewPermission = permissions.find(p => p.view === view);
-  if (!viewPermission) return false;
-
-  return viewPermission.actions.includes(action);
+  if (!foundModule) return false;
+  const actions = foundModule.actions || [];
+  return actions.some(a => a.toString().trim().toLowerCase() === targetAction);
 };

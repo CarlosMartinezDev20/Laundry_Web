@@ -23,6 +23,7 @@ import {
   X,
 } from '@phosphor-icons/react';
 import { useAuth } from '../context/AuthContext';
+import { hasPermission } from '../utils/permissionUtils';
 import { TableSkeleton } from '../components/UI/TableSkeleton';
 import { ConfirmModal } from '../components/UI/ConfirmModal';
 import { useToast } from '../context/ToastContext';
@@ -63,7 +64,7 @@ const StatusBadgeCell = memo(function StatusBadgeCell({ status }) {
 
 const FormTableRow = memo(function FormTableRow({
   form,
-  isAdminOrManager,
+  user,
   onView,
   onEdit,
   onDelete,
@@ -71,6 +72,10 @@ const FormTableRow = memo(function FormTableRow({
 }) {
   const companyName = form.company?.name || 'company';
   const dateLabel = form._dateLabel || (form.date || '—');
+  const canEdit = hasPermission(user, 'Forms', 'Edit');
+  const canDelete = hasPermission(user, 'Forms', 'Delete');
+  const canApprove = hasPermission(user, 'Forms', 'Approve');
+
   return (
     <tr>
       <td
@@ -96,7 +101,7 @@ const FormTableRow = memo(function FormTableRow({
             <Eye size={15} aria-hidden />
           </button>
 
-          {form.status === 'PENDING_APPROVAL' && isAdminOrManager && (
+          {form.status === 'PENDING_APPROVAL' && canApprove && (
             <button
               type="button"
               className="icon-btn success"
@@ -108,19 +113,21 @@ const FormTableRow = memo(function FormTableRow({
             </button>
           )}
 
-          <button
-            type="button"
-            className="icon-btn"
-            onClick={() => onEdit(form.id)}
-            disabled={form.status === 'APPROVED'}
-            title={form.status === 'APPROVED' ? 'Approved forms cannot be edited' : 'Edit form'}
-            aria-label="Edit form"
-            style={form.status === 'APPROVED' ? { opacity: 0.4, cursor: 'not-allowed' } : {}}
-          >
-            <PencilSimple size={15} aria-hidden />
-          </button>
+          {canEdit && (
+            <button
+              type="button"
+              className="icon-btn"
+              onClick={() => onEdit(form.id)}
+              disabled={form.status === 'APPROVED'}
+              title={form.status === 'APPROVED' ? 'Approved forms cannot be edited' : 'Edit form'}
+              aria-label="Edit form"
+              style={form.status === 'APPROVED' ? { opacity: 0.4, cursor: 'not-allowed' } : {}}
+            >
+              <PencilSimple size={15} aria-hidden />
+            </button>
+          )}
 
-          {isAdminOrManager && (
+          {canDelete && (
             <button
               type="button"
               className="icon-btn danger"
@@ -474,9 +481,11 @@ export const FormsManagement = () => {
           <h1 className="page-title">Forms</h1>
           <p className="page-subtitle">Manage and track all laundry reports</p>
         </div>
-        <Button variant="primary" onClick={() => navigate('/forms/new')} className="w-full sm:w-fit flex-shrink-0">
-          <Plus size={16} aria-hidden /> New form
-        </Button>
+        {hasPermission(user, 'Forms', 'Add') && (
+          <Button variant="primary" onClick={() => navigate('/forms/new')} className="w-full sm:w-fit flex-shrink-0">
+            <Plus size={16} aria-hidden /> New form
+          </Button>
+        )}
       </div>
 
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -503,7 +512,7 @@ export const FormsManagement = () => {
         </div>
       </div>
 
-      {isAdminOrManager && (
+      {hasPermission(user, 'Forms', 'Approve') && (
         <Card>
           <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
             <div>
@@ -772,7 +781,7 @@ export const FormsManagement = () => {
                       <FormTableRow
                         key={form.id}
                         form={form}
-                        isAdminOrManager={isAdminOrManager}
+                        user={user}
                         onView={handleViewForm}
                         onEdit={handleEditForm}
                         onDelete={handleDeleteClick}

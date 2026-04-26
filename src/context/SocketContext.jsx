@@ -51,6 +51,13 @@ export const SocketProvider = ({ children }) => {
       toastRef.current.info(`🔔 ${data.title}: ${data.message}`, 5000);
     });
 
+    newSocket.on('reload_permissions', () => {
+      console.log('[Socket] Reload permissions event received');
+      if (window.auth_refresh_profile) {
+        window.auth_refresh_profile();
+      }
+    });
+
     newSocket.on('disconnect', (reason) => {
       console.log('[Socket] Disconnected:', reason);
     });

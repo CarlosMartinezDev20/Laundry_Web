@@ -53,10 +53,30 @@ export const AuthProvider = ({ children }) => {
     setUser(null);
   }, []);
 
+  const refreshProfile = useCallback(async () => {
+    try {
+      const response = await api.get('/auth/profile');
+      if (response) {
+        localStorage.setItem('user', JSON.stringify(response));
+        setUser(response);
+        console.log('[AuthContext] Profile refreshed via real-time update');
+      }
+    } catch (err) {
+      console.error('[AuthContext] Failed to refresh profile:', err);
+    }
+  }, []);
+
   const value = useMemo(
-    () => ({ user, login, logout, loading }),
-    [user, login, logout, loading],
+    () => ({ user, login, logout, refreshProfile, loading }),
+    [user, login, logout, refreshProfile, loading],
   );
+
+  useEffect(() => {
+    window.auth_refresh_profile = refreshProfile;
+    return () => {
+      delete window.auth_refresh_profile;
+    };
+  }, [refreshProfile]);
 
   return (
     <AuthContext.Provider value={value}>

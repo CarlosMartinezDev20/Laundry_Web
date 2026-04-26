@@ -59,16 +59,18 @@ export const Sidebar = ({ isOpen, closeSidebar }) => {
         <div className="nav-group">
           <div className="sidebar-section-label" style={{ marginBottom: '6px' }}>Main</div>
 
-          <NavLink
-            to="/forms"
-            onClick={closeSidebar}
-            className={({ isActive }) => `nav-item ${isActive ? 'active' : ''}`}
-          >
-            <span className="nav-item-icon"><FileText size={18} /></span>
-            Forms
-          </NavLink>
+          {hasPermission(user, 'Forms', 'View') && (
+            <NavLink
+              to="/forms"
+              onClick={closeSidebar}
+              className={({ isActive }) => `nav-item ${isActive ? 'active' : ''}`}
+            >
+              <span className="nav-item-icon"><FileText size={18} /></span>
+              Forms
+            </NavLink>
+          )}
 
-          {isManager && (
+          {hasPermission(user, 'Reports', 'View') && (
             <NavLink
               to="/reports"
               onClick={closeSidebar}
@@ -89,45 +91,55 @@ export const Sidebar = ({ isOpen, closeSidebar }) => {
           </NavLink>
         </div>
 
-        {isAdmin && (
+        {(hasPermission(user, 'Companies', 'View') || 
+          hasPermission(user, 'Users', 'View') || 
+          hasPermission(user, 'Roles', 'View')) && (
           <div className="nav-group">
             <div className="sidebar-section-label" style={{ marginBottom: '6px' }}>Administration</div>
 
-            <NavLink
-              to="/companies"
-              onClick={closeSidebar}
-              className={({ isActive }) => `nav-item ${isActive ? 'active' : ''}`}
-            >
-              <span className="nav-item-icon"><Buildings size={18} /></span>
-              Companies
-            </NavLink>
+            {hasPermission(user, 'Companies', 'View') && (
+              <NavLink
+                to="/companies"
+                onClick={closeSidebar}
+                className={({ isActive }) => `nav-item ${isActive ? 'active' : ''}`}
+              >
+                <span className="nav-item-icon"><Buildings size={18} /></span>
+                Companies
+              </NavLink>
+            )}
 
-            <NavLink
-              to="/users"
-              onClick={closeSidebar}
-              className={({ isActive }) => `nav-item ${isActive ? 'active' : ''}`}
-            >
-              <span className="nav-item-icon"><Users size={18} /></span>
-              Users
-            </NavLink>
+            {hasPermission(user, 'Users', 'View') && (
+              <NavLink
+                to="/users"
+                onClick={closeSidebar}
+                className={({ isActive }) => `nav-item ${isActive ? 'active' : ''}`}
+              >
+                <span className="nav-item-icon"><Users size={18} /></span>
+                Users
+              </NavLink>
+            )}
 
-            <NavLink
-              to="/roles"
-              onClick={closeSidebar}
-              className={({ isActive }) => `nav-item ${isActive ? 'active' : ''}`}
-            >
-              <span className="nav-item-icon"><ShieldCheck size={18} /></span>
-              Web Permissions
-            </NavLink>
+            {hasPermission(user, 'Roles', 'View') && (
+              <>
+                <NavLink
+                  to="/roles"
+                  onClick={closeSidebar}
+                  className={({ isActive }) => `nav-item ${isActive ? 'active' : ''}`}
+                >
+                  <span className="nav-item-icon"><ShieldCheck size={18} /></span>
+                  Web Permissions
+                </NavLink>
 
-            <NavLink
-              to="/app-permissions"
-              onClick={closeSidebar}
-              className={({ isActive }) => `nav-item ${isActive ? 'active' : ''}`}
-            >
-              <span className="nav-item-icon"><DeviceMobile size={18} /></span>
-              App Permissions
-            </NavLink>
+                <NavLink
+                  to="/app-permissions"
+                  onClick={closeSidebar}
+                  className={({ isActive }) => `nav-item ${isActive ? 'active' : ''}`}
+                >
+                  <span className="nav-item-icon"><DeviceMobile size={18} /></span>
+                  App Permissions
+                </NavLink>
+              </>
+            )}
           </div>
         )}
 

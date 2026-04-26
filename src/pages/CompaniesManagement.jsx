@@ -11,9 +11,12 @@ import { useToast } from '../context/ToastContext';
 import { ErrorState } from '../components/UI/ErrorState';
 import { formatApiError } from '../utils/apiErrors';
 import { Trash, PencilSimple, Buildings, Plus } from '@phosphor-icons/react';
+import { useAuth } from '../context/AuthContext';
+import { hasPermission } from '../utils/permissionUtils';
 
 export const CompaniesManagement = () => {
   const toast = useToast();
+  const { user } = useAuth();
   const [companies, setCompanies] = useState([]);
   const [loading, setLoading]     = useState(true);
   const [fetchError, setFetchError] = useState(null);
@@ -126,9 +129,11 @@ export const CompaniesManagement = () => {
           <h1 className="page-title">Companies</h1>
           <p className="page-subtitle">Manage client companies</p>
         </div>
-        <Button variant="primary" onClick={() => setCreateModal(true)} className="w-full sm:w-fit">
-          <Plus size={16} /> Add Company
-        </Button>
+        {hasPermission(user, 'Companies', 'Add') && (
+          <Button variant="primary" onClick={() => setCreateModal(true)} className="w-full sm:w-fit">
+            <Plus size={16} /> Add Company
+          </Button>
+        )}
       </div>
 
       {/* Table */}
@@ -155,16 +160,20 @@ export const CompaniesManagement = () => {
                   </td>
                   <td>
                     <div className="flex gap-2">
-                      <button className="icon-btn" onClick={() => openEdit(company)} title="Edit company">
-                        <PencilSimple size={15} />
-                      </button>
-                      <button
-                        className="icon-btn danger"
-                        onClick={() => setDeleteModal({ isOpen: true, id: company.id })}
-                        title="Delete company"
-                      >
-                        <Trash size={15} />
-                      </button>
+                      {hasPermission(user, 'Companies', 'Edit') && (
+                        <button className="icon-btn" onClick={() => openEdit(company)} title="Edit company">
+                          <PencilSimple size={15} />
+                        </button>
+                      )}
+                      {hasPermission(user, 'Companies', 'Delete') && (
+                        <button
+                          className="icon-btn danger"
+                          onClick={() => setDeleteModal({ isOpen: true, id: company.id })}
+                          title="Delete company"
+                        >
+                          <Trash size={15} />
+                        </button>
+                      )}
                     </div>
                   </td>
                 </tr>

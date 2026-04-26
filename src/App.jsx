@@ -7,6 +7,8 @@ import { ToastProvider } from './context/ToastContext';
 import { ConnectivityProvider } from './context/ConnectivityContext';
 import { SocketProvider } from './context/SocketContext';
 import { AppErrorBoundary } from './components/AppErrorBoundary';
+import { hasPermission } from './utils/permissionUtils';
+import { AccessDenied } from './components/UI/AccessDenied';
 
 const Login = lazy(() => import('./pages/Login').then(m => ({ default: m.Login })));
 const CompaniesManagement = lazy(() => import('./pages/CompaniesManagement').then(m => ({ default: m.CompaniesManagement })));
@@ -19,20 +21,20 @@ const Profile = lazy(() => import('./pages/Profile').then(m => ({ default: m.Pro
 const RolePermissions = lazy(() => import('./pages/RolePermissions').then(m => ({ default: m.RolePermissions })));
 const AppPermissions = lazy(() => import('./pages/AppPermissions').then(m => ({ default: m.AppPermissions })));
 
-const ProtectedRoute = ({ children, requiredRole }) => {
-  const { user } = useAuth();
+const ProtectedRoute = ({ children, requiredView, requiredAction = 'View' }) => {
+  const { user, loading } = useAuth();
+  
+  if (loading) return <GlobalLoader />;
   
   if (!user) {
     return <Navigate to="/login" replace />;
   }
   
-  if (requiredRole) {
-    const roleName = (user?.role?.name || user?.role || '').toString().toUpperCase();
-    const isAdmin = roleName === 'ADMIN';
-    const isManager = roleName === 'MANAGER' || isAdmin;
-    
-    if (requiredRole === 'MANAGER' && !isManager) return <Navigate to="/forms" replace />;
-    if (requiredRole === 'ADMIN' && !isAdmin) return <Navigate to="/forms" replace />;
+  if (requiredView) {
+    const hasAccess = hasPermission(user, requiredView, requiredAction);
+    if (!hasAccess) {
+      return <AccessDenied module={requiredView} />;
+    }
   }
   
   return children;
@@ -52,33 +54,33 @@ export const App = () => {
                   <Route index element={<Navigate to="/forms" replace />} />
 
                   <Route path="forms">
-                    <Route index element={<FormsManagement />} />
-                    <Route path="new" element={<FormCreateEdit />} />
-                    <Route path=":id" element={<FormDetail />} />
-                    <Route path=":id/edit" element={<FormCreateEdit />} />
+                    <Route index element={<ProtectedRoute requiredView="Forms"><FormsManagement /></ProtectedRoute>} />
+                    <Route path="new" element={<ProtectedRoute requiredView="Forms"><FormCreateEdit /></ProtectedRoute>} />
+                    <Route path=":id" element={<ProtectedRoute requiredView="Forms"><FormDetail /></ProtectedRoute>} />
+                    <Route path=":id/edit" element={<ProtectedRoute requiredView="Forms"><FormCreateEdit /></ProtectedRoute>} />
                   </Route>
 
                   <Route path="profile" element={<Profile />} />
 
                   <Route
                     path="reports"
-                    element={<ProtectedRoute requiredRole="MANAGER"><ReportsView /></ProtectedRoute>}
+                    element={<ProtectedRoute requiredView="Reports"><ReportsView /></ProtectedRoute>}
                   />
                   <Route
                     path="companies"
-                    element={<ProtectedRoute requiredRole="ADMIN"><CompaniesManagement /></ProtectedRoute>}
+                    element={<ProtectedRoute requiredView="Companies"><CompaniesManagement /></ProtectedRoute>}
                   />
                   <Route
                     path="users"
-                    element={<ProtectedRoute requiredRole="ADMIN"><EmployeesManagement /></ProtectedRoute>}
+                    element={<ProtectedRoute requiredView="Users"><EmployeesManagement /></ProtectedRoute>}
                   />
                   <Route
                     path="roles"
-                    element={<ProtectedRoute requiredRole="ADMIN"><RolePermissions /></ProtectedRoute>}
+                    element={<ProtectedRoute requiredView="Roles"><RolePermissions /></ProtectedRoute>}
                   />
                   <Route
                     path="app-permissions"
-                    element={<ProtectedRoute requiredRole="ADMIN"><AppPermissions /></ProtectedRoute>}
+                    element={<ProtectedRoute requiredView="Roles"><AppPermissions /></ProtectedRoute>}
                   />
                 </Route>
 
